@@ -664,7 +664,7 @@ function ventana(d) {
   const w = wd(d);
   if (w === 0 || D.festivos.includes(d)) return null;
   if (d === D.performance.dia) return [D.performance.ini, D.performance.fin];
-  if (d === D.reunion.dia) return [INI, D.reunion.fin];
+  if (d === D.reunion.dia) return [INI, Math.max(D.reunion.fin, D.reunion.llegada + 10)];   // reunión: margen hasta 10 min después de la llegada
   return w === 6 ? [INI, 840] : [INI, 1020];
 }
 const pdv = c => D.pdv[c] || ['?', '', '', '', '', '', null, null];
