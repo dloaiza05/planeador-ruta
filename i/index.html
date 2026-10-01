@@ -842,7 +842,7 @@ function pintarInv() {
     <input id="ivQ" type="search" placeholder="Buscar punto o producto…" value="${esc(invQ)}">
     <span class="sep"></span>
     ${ADMIN && !VISOR ? '<button class="b2" id="ivS" title="Subir los Excel INVRPT que descargas del CEN: puedes escoger varios a la vez (Éxito y Olímpica)">📂 Subir inventario</button>' : ''}${ADMIN && !VISOR && invLocal() ? '<button class="b2" id="ivL" title="Borra de este computador lo que subiste y vuelve al inventario publicado">🗑 Limpiar lo subido</button>' : ''}
-    ${ADMIN && COORD && COORD.invPriv ? '<button class="b1" id="ivE" title="Enlace que solo muestra el inventario y se vence en 6 horas">🔗 Enlace 6 h</button>' : ''}${VISOR ? '' : '<button class="b2" id="ivSh">📤 Compartir</button>'}${ADMIN && !VISOR ? '<button class="b2" id="ivX">⬇ Excel</button>' : ''}</div>`;
+    ${ADMIN && !VISOR && COORD && COORD.invVista ? '<button class="b1" id="ivE" title="Enlace que solo muestra el inventario y se vence en 6 horas">🔗 Enlace 6 h</button>' : ''}${VISOR ? '' : '<button class="b2" id="ivSh">📤 Compartir</button>'}${ADMIN && !VISOR ? '<button class="b2" id="ivX">⬇ Excel</button>' : ''}</div>`;
   if (!conDato.length && invDia) {
     h += `<div class="cvCar">${Object.keys(vis).length ? 'Los puntos que se visitan (' + esc(diaTxt(+invDia)) + ')' + ' no tienen archivo de inventario todavía' + (sinArchivo ? ' (' + pl(sinArchivo, 'visita', 'visitas') + ')' : '') + '.' : 'No hay visitas agendadas (' + esc(diaTxt(+invDia)) + ').'}<br><button class="b2" id="ivTodo">Ver todos los puntos</button></div>`;
     cont.innerHTML = h; invEventos(); return;
@@ -1156,14 +1156,12 @@ async function invSubir(files) {
 // --- 🔗 enlace temporal de inventario (12 h): solo inventario, firmado por el coordinador, se vence solo ---
 const INV_HORAS = 6;
 const invB64u = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 32768) s += String.fromCharCode.apply(null, u8.subarray(i, i + 32768)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
-async function invArmarEnlace(u) {
-  if (!COORD || !COORD.invPriv || !COORD.invVista) throw new Error('falta la llave del coordinador o el inventario publicado');
-  const exp = Date.now() + INV_HORAS * 36e5, msg = [COORD.invVista.id, COORD.invVista.k, u || '0', exp.toString(36)].join('~');
-  const k = await crypto.subtle.importKey('jwk', COORD.invPriv, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
-  const firma = new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, k, new TextEncoder().encode(msg)));
+async function invArmarEnlace(u) {                      // enlace corto, solo letras y números: …/i/#<id><secreto><persona><vence>
+  if (!COORD || !COORD.invVista) throw new Error('falta el inventario publicado');
+  const exp = Date.now() + INV_HORAS * 36e5, us = Object.keys(D.users).sort(), ui = u ? us.indexOf(u) + 1 : 0;
   const base = /^https?:\/\/[^/]*github\.io/.test(location.href) ? location.origin + location.pathname.replace(/[^/]*$/, '') : 'https://dloaiza05.github.io/planeador-ruta/';
   const n = invPuntosDe(u).filter(c => invDatos().pts[c] && INV_CADENAS.includes(invCadena(c))).length;
-  return { url: base + 'i.html#' + msg + '~' + invB64u(firma), exp, n };
+  return { url: base + 'i/#' + COORD.invVista.id + COORD.invVista.k + ui.toString(36).padStart(2, '0') + Math.ceil(exp / 60000).toString(36), exp, n };
 }
 async function invEnlace() {
   const u = ADMIN ? invPer : U;
@@ -1184,24 +1182,24 @@ function invMdLinea(cod) {                            // en «Mi día»: qué re
   return a && (a.agot || a.noap || a.bajo || a.neg) ? `<div class="mdInv">📦 <b>Inventario:</b> ${esc(invLineaCorta(a, 3).replace(/^🔴 /, ''))}</div>` : '';
 }
 
-// --- arranque del visor del enlace corto: verifica la firma y el vencimiento, trae los datos cifrados y pinta la
-//     MISMA sección de Inventarios del planeador (solo lectura) ---
+// --- arranque del visor del enlace corto: …/i/#<id 6><secreto 16><persona 2><vence> (solo letras y números) ---
+//     Trae los datos cifrados de la publicación vigente y pinta la MISMA sección de Inventarios (solo lectura).
 (async () => {
-  const falla = t => { document.getElementById('invIn').innerHTML = `<div class="cvCar" style="padding:60px 20px"><h2>🔒 ${esc(t)}</h2><p>Pídele al coordinador un enlace nuevo.</p></div>`; };
+  const falla = t => { document.getElementById('invIn').innerHTML = `<div class="cvCar" style="padding:60px 20px"><h2>🔒 ${esc(t)}</h2><p>Pídele al coordinador un enlace nuevo.</p></div>`; document.getElementById('vence').textContent = 'Enlace temporal de inventario'; };
   try {
-    const p = decodeURIComponent(location.hash.slice(1)).split('~');
-    if (p.length !== 5) return falla('Enlace incompleto');
-    const [id, k, u0, exp36, sig] = p, u = u0 === '0' ? '' : u0, msg = new TextEncoder().encode([id, k, u0, exp36].join('~'));
-    const ub = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), c => c.charCodeAt(0));
-    const pub = await crypto.subtle.importKey('jwk', VISOR_PUB, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
-    if (!(await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, pub, ub(sig), msg))) return falla('Este enlace no es válido (fue modificado)');
-    const exp = parseInt(exp36, 36); if (!exp || Date.now() > exp) return falla('Este enlace venció');
-    const r = await fetch('i/' + id + '.json', { cache: 'no-store' }); if (!r.ok) return falla('Este enlace ya no está disponible');
-    const A = await r.json(), key = await crypto.subtle.importKey('raw', ub(k), 'AES-GCM', false, ['decrypt']);
-    const z = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: Uint8Array.from(atob(A.i), c => c.charCodeAt(0)) }, key, Uint8Array.from(atob(A.c), c => c.charCodeAt(0)));
+    const h = location.hash.slice(1).replace(/[^A-Za-z0-9]/g, '');
+    if (h.length < 26) return falla('Enlace incompleto');
+    const id = h.slice(0, 6), sec = h.slice(6, 22), ui = parseInt(h.slice(22, 24), 36), exp = parseInt(h.slice(24), 36) * 60000;
+    if (!exp || Date.now() > exp) return falla('Este enlace venció');
+    const r = await fetch(id + '.json', { cache: 'no-store' }); if (!r.ok) return falla('Este enlace ya no está disponible');
+    const A = await r.json(), b = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+    const kraw = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sec))).slice(0, 16);
+    const key = await crypto.subtle.importKey('raw', kraw, 'AES-GCM', false, ['decrypt']);
+    let z; try { z = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b(A.i) }, key, b(A.c)); } catch (e) { return falla('Este enlace no es válido'); }
     const V = JSON.parse(await new Response(new Blob([z]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text());
     D = V.D; VIS = V.vis || {}; CONV = V.conv || {};
-    if (u && !D.users[u]) return falla('Este enlace no es válido');
+    const us = Object.keys(D.users).sort(), u = ui > 0 ? us[ui - 1] : '';
+    if (ui > 0 && !u) return falla('Este enlace no es válido');
     ADMIN = !u; U = u || null;                                          // equipo: escoge la persona · una persona: solo sus puntos
     const vence = new Date(exp).toLocaleString('es-CO', { weekday: 'long', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
     document.getElementById('vence').innerHTML = `⏳ Enlace temporal de solo lectura · vence el <b>${esc(vence)}</b>${u ? ' · ' + esc(bonito(D.users[u].nombre)) : ''}`;
