@@ -234,6 +234,9 @@ body.modo-desc main,body.modo-desc #stats,body.modo-desc #undo,body.modo-desc #s
 #invSec .ivKpi .ok b{color:var(--ok)}
 #invSec .ivDn{margin:3px 0 0;font-size:12px;color:#7c2d12;background:#fff7ed;border:1px solid #fed7aa;border-radius:7px;padding:2px 7px;display:inline-block}#invSec .ivDn.hoy{background:#fef3c7;border-color:#f59e0b;color:#78350f}#invSec .ivDn.al{background:#fee2e2;border-color:#fca5a5;color:#991b1b;display:block}
 #invSec .ivDm{margin:8px 0;padding:8px 11px;border-radius:10px;background:#fff7ed;border:1px solid #fed7aa;font-size:12.5px;color:#7c2d12;line-height:1.5}#invSec .ivDm .hoy{background:#fde68a;border-radius:5px;padding:0 4px;font-weight:700}#invSec .ivDm .r{color:#b91c1c}
+#invSec .ivWb{margin:3px 0 0;font-size:12px;color:#1e3a8a;background:#eef4ff;border:1px solid #c7d7fe;border-radius:7px;padding:2px 7px;display:inline-block;line-height:1.45}#invSec .ivWb s{color:#64748b}#invSec .ivWb em{font-style:normal;font-weight:700;color:#b91c1c}#invSec .ivWb a{color:#1d4ed8;font-weight:600}
+#invSec .ivWb.al{display:block;background:#fff7ed;border-color:#fdba74;color:#9a3412}#invSec .ivWb.inf{display:block;background:#f8fafc;border-color:#e2e8f0;color:#475569}
+#invSec details.ivWeb summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}#invSec details.ivWeb summary h4{margin:0}#invSec details.ivWeb s{color:#64748b}
 #invSec .ivCd{margin:2px 0 0;font-size:11.5px;color:var(--soft)}
 #invSec .ivC{max-width:120px}#invSec .ivC small{white-space:normal;line-height:1.15;text-align:center}
 #invSec .ivRs{background:#f7f9fc;border-radius:10px;padding:8px 10px;font-size:13px;margin:4px 0 6px}
@@ -780,6 +783,57 @@ async function invDinLeer(files) {
   try { localStorage.setItem(DIN_K, JSON.stringify(B)); } catch (e) { avisar('No pude guardar en este equipo (espacio lleno).'); return; }
   dinMemo = null; cerrar(); pintarInv(); avisar(msg.join('\n') + '\n\nQueda guardado en este equipo. Para el equipo y el enlace de 6 h: guarda el archivo en Descargas como DINAMICAS….xlsx y se publica con el inventario.');
 }
+// 🛒 PRECIOS EN LA WEB de cada cadena (precios_web.py, 2 veces al día): precio de la tienda en línea, descuento, promoción, PLU
+const WEB_T = { EXITO: 'Éxito', CARULLA: 'Carulla', OLIMPICA: 'Olímpica', CAFAM: 'Cafam', COLSUBSIDIO: 'Colsubsidio', JUMBO: 'Jumbo' };
+const invTiendaWeb = (cad, cod) => cad === 'GRUPO EXITO' ? (/^CARULLA/i.test((pdv(cod) || [''])[0]) ? 'CARULLA' : 'EXITO') : ({ OLIMPICA: 'OLIMPICA', CAFAM: 'CAFAM', COLSUBSIDIO: 'COLSUBSIDIO', CENCOSUD: 'JUMBO' })[cad] || '';
+const MES3 = { ene: 'ene', feb: 'feb', mar: 'mar', abr: 'abr', may: 'may', jun: 'jun', jul: 'jul', ago: 'ago', sep: 'sep', sept: 'sep', oct: 'oct', nov: 'nov', dic: 'dic' };
+function invVig(t) {                                       // «sep16_oct18» / «16sep_18oct» / «sept26_oct18» → «16 sep–18 oct»
+  const r = /(?:([a-z]{3,4})(\d{1,2})|(\d{1,2})([a-z]{3,4}))/gi, L = []; let m;
+  const tail = String(t).split(/_id\d+_|_ID\d+_/i)[1] || ''; while ((m = r.exec(tail))) { const mes = MES3[(m[1] || m[4] || '').toLowerCase()], d = m[2] || m[3]; if (mes && d) L.push(+d + ' ' + mes); }
+  return L.length === 2 ? L[0] + '–' + L[1] : '';
+}
+function invPromoTxt(t) {                                  // nombre de la promoción, legible
+  const m = String(t).match(/^cmp_(\d+)_/i); if (m) { const v = invVig(t); return 'Campaña ' + m[1] + '%' + (v ? ' · ' + v : ''); }
+  return String(t).replace(/\s+/g, ' ').replace(/(\d+)%\s*/, '$1% ').trim().toLowerCase().replace(/^\w/, c => c.toUpperCase()).replace(/ecommerce/i, 'en línea').slice(0, 90);
+}
+function invCanal(promo, dto) {                            // dónde aplica, solo si la tienda lo dice
+  const t = (promo || []).join(' ');
+  if (/ECOMMERCE|E-COMMERCE|\bAPP\b|ONLINE|\bWEB\b|DIGITAL|VIRTUAL/i.test(t)) return ['💻', 'solo compra en línea'];
+  if (/_fisi_/i.test(t)) return ['🏬', 'campaña de tienda física (código «fisi»)'];
+  return dto ? ['💻', 'rebaja en la web'] : null;
+}
+function invWeb(e, tienda) {
+  const W = (D.inv || {}).web; if (!W || !tienda) return null;
+  let x = (W.p[e] || {})[tienda];
+  if (!x) for (const [k, T] of Object.entries(W.p)) if (invFam(k) === invFam(e) && T[tienda]) { x = T[tienda]; break; }   // el otro código del mismo producto
+  if (!x) return null;
+  const [pr, pl, dto, promo, plu, ref, disp, url, img, antes] = x;
+  return { pr, pl, dto, promo: promo || [], plu, ref, disp, url, img, antes, canal: invCanal(promo, dto), tienda };
+}
+const invPesos = n => '$' + Math.round(n).toLocaleString('es-CO');
+function invWebHtml(v, cod, cad) {                         // una línea por producto + aviso si no cuadra con la dinámica
+  const w = invWeb(v.e, invTiendaWeb(cad, cod)); if (!w) return '';
+  const pr = (w.promo || []).map(invPromoTxt).filter(Boolean)[0];
+  let h = `<p class="ivWb">🛒 <b>Web ${esc(WEB_T[w.tienda])}:</b> ${invPesos(w.pr)}${w.dto ? ` <s>${invPesos(w.pl)}</s> <em>−${w.dto}%</em>` : ''}${pr ? ' · ' + esc(pr) : ''}${w.canal && w.dto ? ` · ${w.canal[0]} ${esc(w.canal[1])}` : ''}${w.plu ? ' · PLU ' + esc(w.plu) : ''}${w.disp ? '' : ' · <b>agotado en la web</b>'}${w.antes ? ` · <b>cambió</b> (antes ${invPesos(w.antes.pr)}${w.antes.dto ? ' −' + w.antes.dto + '%' : ''})` : ''} · <a href="${esc(w.url)}" target="_blank" rel="noopener noreferrer">ver ↗</a></p>`;
+  const hoy = hoyISO(), dh = (v.din || []).filter(r => r[3] != null && r[4] <= hoy && (r[5] || r[4]) >= hoy);
+  if (dh.length) { const pc = Math.max(...dh.map(r => +r[3])); if (Math.abs((w.dto || 0) - pc) > 2) h += `<p class="ivWb al">⚠ Hoy la dinámica dice <b>${pc}%</b> y la web de ${esc(WEB_T[w.tienda])} muestra ${w.dto ? '<b>' + w.dto + '%</b>' : '<b>sin descuento</b>'}${/rappi|tienda/i.test(dh[0][6] || '') ? ' (la dinámica es «' + esc(dh[0][6]) + '»: puede no verse en la página)' : ''}. 👉 Revísalo en la visita.</p>`; }
+  else if (w.dto >= 5 && !(v.din || []).length && invDin().p.some(r => r[0] === cad)) h += `<p class="ivWb inf">ℹ La web tiene −${w.dto}% y no está en tus dinámicas del mes.</p>`;
+  return h;
+}
+function invWebEjecutivo(L) {                               // 📊 recuadro plegable: lo que tiene descuento hoy en la web de tus cadenas
+  const W = (D.inv || {}).web; if (!W) return '';
+  const tiendas = [...new Set(L.flatMap(a => [invTiendaWeb(a.cad, a.cod)]).filter(Boolean))], filas = [], mal = [];
+  const vistos = new Set();
+  for (const a of L) { const t = invTiendaWeb(a.cad, a.cod); for (const v of a.it) { const k = t + '|' + invFam(v.e); if (vistos.has(k)) continue; vistos.add(k); const w = invWeb(v.e, t); if (!w) continue;
+    if (w.dto) filas.push({ t, v, w }); const hoy = hoyISO(), dh = (v.din || []).filter(r => r[3] != null && r[4] <= hoy && (r[5] || r[4]) >= hoy);
+    if (dh.length && Math.abs((w.dto || 0) - Math.max(...dh.map(r => +r[3]))) > 2) mal.push({ t, v, w, pc: Math.max(...dh.map(r => +r[3])) }); } }
+  const cu = {}; filas.forEach(x => cu[x.t] = (cu[x.t] || 0) + 1);
+  return `<details class="ivBx ivBw ivWeb"><summary><h4>🛒 Precios en la web hoy <small>(consulta ${esc(W.g)})</small></h4><span class="mu">${tiendas.map(t => esc(WEB_T[t]) + ': ' + (cu[t] || 0) + ' con descuento').join(' · ')}${mal.length ? ' · <b class="r">⚠ ' + mal.length + ' no cuadran con la dinámica</b>' : ''}</span> <span class="lnk">ver / ocultar</span></summary>
+    <p class="mu">Es el precio de la <b>tienda en línea</b> de cada cadena (el mismo que cobra el carrito). En la tienda física puede ser distinto: 💻 = solo en línea · 🏬 = la campaña dice que es de tienda física. No se leen los textos dentro de las imágenes; el descuento sale del sistema de precios de la página.</p>
+    ${mal.length ? `<table class="ivTb"><tr><th colspan="4">⚠ No cuadra con la dinámica de hoy</th></tr>${mal.map(x => `<tr><td><b>${esc(x.v.d)}</b><br><small>EAN ${esc(x.v.e)}</small></td><td>${esc(WEB_T[x.t])}</td><td>Dinámica <b>${x.pc}%</b> · web ${x.w.dto ? '<b>' + x.w.dto + '%</b>' : 'sin descuento'}</td><td><a href="${esc(x.w.url)}" target="_blank" rel="noopener noreferrer">ver ↗</a></td></tr>`).join('')}</table>` : ''}
+    <table class="ivTb"><tr><th>Producto</th><th>Tienda</th><th>Precio web</th><th>Antes</th><th>Descuento</th><th>Promoción · dónde aplica</th><th>PLU</th><th></th></tr>
+    ${filas.sort((a, b) => b.w.dto - a.w.dto).map(x => `<tr><td><b>${esc(x.v.d)}</b><br><small>${esc(x.v.m || '')} · EAN ${esc(x.v.e)}</small></td><td>${esc(WEB_T[x.t])}</td><td><b>${invPesos(x.w.pr)}</b></td><td><s>${invPesos(x.w.pl)}</s></td><td class="r"><b>−${x.w.dto}%</b></td><td><small>${esc((x.w.promo || []).map(invPromoTxt)[0] || '—')}${x.w.canal ? '<br>' + x.w.canal[0] + ' ' + esc(x.w.canal[1]) : ''}</small></td><td><small>${esc(x.w.plu || '')}${x.w.ref ? ' · SAP ' + esc(x.w.ref) : ''}</small></td><td><a href="${esc(x.w.url)}" target="_blank" rel="noopener noreferrer">ver ↗</a></td></tr>`).join('') || '<tr><td colspan="8" class="mu">Ningún producto de tus puntos tiene descuento hoy en la web.</td></tr>'}</table></details>`;
+}
 function invDatos() {                                   // publicado + subido aquí; por punto gana la foto más nueva
   if (invMemo) return invMemo;
   const A = D.inv || {}, B = invLocal() || {};
@@ -989,6 +1043,7 @@ function invEjecutivo(L, u) {                           // 📊 para el jefe / e
     const LG = Object.values(G).sort((x, y) => y.falta.length - x.falta.length || x.v.d.localeCompare(y.v.d)), MD = invDin().m.filter(r => cads.includes(r[0]));
     if (LG.length || MD.length) h += `<div class="ivBx ivBw"><h4>🏷 Dinámicas del mes vs inventario <small>(¿hay producto donde hay descuento?)</small></h4>${MD.length ? `<p class="mu">📅 Días de descuento: ${MD.map(r => `${esc(bonito(r[0]))} ${esc(invDiaTxt(r[1], r[1]))}: ${esc(r[3])}${r[2] ? ' (' + esc(r[2]) + ')' : ''}`).join(' · ')}</p>` : ''}
       ${LG.length ? `<table class="ivTb"><tr><th>Producto</th><th>Cadena</th><th>Dinámica</th><th>Con producto</th><th>⚡ Sin producto suficiente</th></tr>${LG.map(g => `<tr><td><b>${esc(g.v.d)}</b><br><small>${esc(g.v.m || '')} · EAN ${esc(g.v.e)}</small></td><td>${esc(bonito(g.cad))}</td><td><small>${invDinTxt(g.v.din).map(x => esc(x.t)).join('<br>')}</small></td><td class="ok"><b>${g.con}</b> de ${g.pts}</td><td class="${g.falta.length ? 'r' : 'ok'}">${g.falta.length ? `<b>${g.falta.length}</b> <small>${g.falta.slice(0, 8).map(esc).join(' · ')}${g.falta.length > 8 ? ' +' + (g.falta.length - 8) : ''}</small>` : '✓ ninguno'}</td></tr>`).join('')}</table>` : ''}</div>`; }
+  h += invWebEjecutivo(L);
   if (rot) {
     const q = [], p = []; for (const a of L) for (const v of a.it) { if (v.rot && v.rot[2] >= 3) q.push([a, v]); if (v.rot && v.rot[1] >= 0 && v.rot[1] <= 3) p.push([a, v]); }
     h += `<div class="ivBx ivBw"><h4>🔄 Rotación</h4><p class="mu">⏳ <b>${q.length}</b> productos sin movimiento hace 3 días o más · ⚡ <b>${p.length}</b> se acaban en 3 días o menos (al ritmo que vienen vendiendo).</p>
@@ -1035,7 +1090,7 @@ function invDetalle(cod) {
     return con.length ? 'Por CD: ' + con.map(k => k.replace(/^(Centro de Distribución\s+)?(CEDI|CD)\s+/i, 'CD ').replace(/\s+/g, ' ') + ': ' + invNum(C.b[k][v.e])).join(' · ') : 'En ningún CD de la cadena hay'; };
   const filaH = v => { const ce = v.cedi ? v.cedi.reduce((s, x) => s + x[1], 0) : null, fr = frase(v, ce), det = cediPorNombre(v);
     return `<div class="ivF"><div class="ivN"><b>${esc(v.d)}</b><span>${esc(v.m || v.c)} · EAN ${esc(v.e)}${v.otro ? ' (código anterior; el actual es ' + esc(v.otro) + ')' : ''}${v.cubre ? ' · en cero con este código, pero la tienda tiene ' + invNum(v.cubre) + ' con el otro código del mismo producto' : ''}${v.qa != null && v.qa !== v.q ? ' · el inventario anterior tenía ' + invNum(v.qa) : ''}${rotT(v)}</span>
-      ${fr ? `<p class="ivFr">${esc(fr)}</p>` : ''}${det ? `<p class="ivCd">🏬 ${esc(det)}</p>` : ''}${v.din && v.din.length ? invDinTxt(v.din).map(x => `<p class="ivDn${x.hoy ? ' hoy' : ''}">🏷 ${esc(x.t)}${x.hoy ? ' · <b>¡HOY!</b>' : ''}</p>`).join('') + (v.est !== 'ok' ? '<p class="ivDn al">⚡ Tiene dinámica este mes y no hay producto suficiente: es prioridad.</p>' : '') : ''}<i>${v.conv ? '<em class="c">⚠ marca con convenio</em>' : ''}${v.nuevo ? '<em class="r">se agotó desde el último inventario</em>' : ''}</i></div>
+      ${fr ? `<p class="ivFr">${esc(fr)}</p>` : ''}${det ? `<p class="ivCd">🏬 ${esc(det)}</p>` : ''}${v.din && v.din.length ? invDinTxt(v.din).map(x => `<p class="ivDn${x.hoy ? ' hoy' : ''}">🏷 ${esc(x.t)}${x.hoy ? ' · <b>¡HOY!</b>' : ''}</p>`).join('') + (v.est !== 'ok' ? '<p class="ivDn al">⚡ Tiene dinámica este mes y no hay producto suficiente: es prioridad.</p>' : '') : ''}${invWebHtml(v, cod, a.cad)}<i>${v.conv ? '<em class="c">⚠ marca con convenio</em>' : ''}${v.nuevo ? '<em class="r">se agotó desde el último inventario</em>' : ''}</i></div>
       <div class="ivQs">${cel('En ' + tiendaN, v.est === 'agot' ? '0' : v.est === 'noap' ? invNoap(a.cad).celda : invNum(v.q), 't-' + v.est)}${cel('En ' + cediN, ce == null ? '—' : invNum(ce))}
       ${v.acc ? `<span class="ivAcc ${v.acc[1]}">${v.acc[0]}</span>` : ''}</div></div>`; };
   const grupo = (k, L) => { if (!L.length) return ''; const e = k === 'noap' ? Object.assign({}, INV_EST.noap, invNoap(a.cad)) : INV_EST[k];
