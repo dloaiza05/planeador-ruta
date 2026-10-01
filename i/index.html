@@ -248,6 +248,7 @@ body.modo-desc main,body.modo-desc #stats,body.modo-desc #undo,body.modo-desc #s
 #invSec .ivTb{width:100%;border-collapse:collapse;font-size:12.5px}#invSec .ivTb th{text-align:left;font-size:11.5px;color:var(--soft);border-bottom:1px solid var(--line);padding:5px 6px;white-space:nowrap}#invSec .ivTb td{border-bottom:1px solid var(--line2);padding:5px 6px;vertical-align:top}
 #invSec .ivTb .ok,#invSec .ivTb b.ok{color:var(--ok)}#invSec .ivTb .r,#invSec .ivTb b.r{color:var(--bad)}#invSec .ivTb small{color:var(--muted)}
 #invSec .ivPie{font-size:12px;margin-top:14px}
+.mesAl{border-radius:12px;padding:9px 12px;margin:0 0 12px;font-size:13px}.mesAl.mal{background:var(--bad-s);border:1px solid #f5b5b5;color:#8a1c1c}.mesAl.bien{background:var(--ok-s);border:1px solid #9fd5b0;color:#14532d}
 #diaIn .mdPie{font-size:12.5px;margin-top:6px}
 #envSec .enPasos{display:flex;flex-direction:column;gap:8px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:12px 0 6px}
 #envSec .enPasos>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13.5px}#envSec .enPasos>div>b{flex:none;width:26px;height:26px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:13px}
@@ -1185,6 +1186,70 @@ async function invEnlace() {
 function invMdLinea(cod) {                            // en «Mi día»: qué revisar de inventario en ese punto
   const a = D.inv || invLocal() ? invAnalisis(String(cod)) : null;
   return a && (a.agot || a.noap || a.bajo || a.neg) ? `<div class="mdInv">📦 <b>Inventario:</b> ${esc(invLineaCorta(a, 3).replace(/^🔴 /, ''))}</div>` : '';
+}
+// =====================================================================================================
+// 🗓 MESES: cada mes guarda su planificador y su panel (IndexedDB de este computador). La lista de arriba cambia
+//    de mes sin perder nada; Descargas muestra el registro por mes y quién falta por completar su plan.
+// =====================================================================================================
+const MES_DB = 'planeador-meses', MESES_N = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const mesClave = (a, m) => a + '-' + String(m).padStart(2, '0');
+function mesDB() { return new Promise((ok, no) => { const r = indexedDB.open(MES_DB, 1); r.onupgradeneeded = () => r.result.createObjectStore('meses'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); }); }
+async function mesOp(fn) { try { const db = await mesDB(); return await new Promise(ok => { const t = db.transaction('meses', 'readwrite'), q = fn(t.objectStore('meses')); q.onsuccess = () => ok(q.result); q.onerror = () => ok(null); }); } catch (e) { return null; } }
+const mesGet = k => mesOp(s => s.get(k)), mesPut = (k, v) => mesOp(s => s.put(v, k)), mesTodos = async () => (await mesOp(s => s.getAll())) || [];
+async function mesRegistrar() {                         // guarda el mes que está abierto (planificador + panel)
+  if (!ADMIN) return;
+  const k = mesClave(D.anio, D.mes), x = { k, anio: D.anio, mes: D.mes, nombre: bonito(D.mesNombre) + ' ' + D.anio, emb: !D._cargado, fuente: String(D.fuente || '').split(' · ')[0], guardado: Date.now() };
+  if (D._cargado) { const d = Object.assign({}, D); delete d._cargado; x.D = d; }
+  try { x.panel = localStorage.getItem('planeador-panel'); } catch (e) { }
+  await mesPut(k, x);
+}
+function mesProgreso(x) {                              // personas · visitas · programadas de un mes guardado
+  const d = x.emb || !x.D ? EMB : x.D, out = { personas: 0, vis: 0, prog: 0, faltan: [] };
+  for (const [u, us] of Object.entries(d.users || {})) {
+    let Pu = {}; try { Pu = JSON.parse(localStorage.getItem('planeador-' + d.anio + '-' + d.mes + '-' + u) || 'null') || {}; } catch (e) { }
+    if (!Object.keys(Pu).length) us.filas.forEach(r => { if (r[8]) Pu[r[0]] = 1; });
+    const prog = us.filas.filter(r => Pu[r[0]]).length;
+    out.personas++; out.vis += us.filas.length; out.prog += prog; if (prog < us.filas.length) out.faltan.push([u, us.nombre, us.filas.length - prog]);
+  }
+  return out;
+}
+async function mesAbrir(k) {
+  await mesRegistrar();
+  const x = await mesGet(k);
+  if (!x) { const [a, m] = k.split('-').map(Number); toast('🗓 ' + bonito(MESES_N[m - 1]) + ' ' + a + ' todavía no está armado: sube su panel y su planificador.', 7000); setSeccion('mes'); return; }
+  try {
+    if (x.emb || !x.D) localStorage.removeItem('planeador-datos'); else localStorage.setItem('planeador-datos', JSON.stringify(Object.assign({}, x.D, { version: EMB.version })));
+    if (x.panel) localStorage.setItem('planeador-panel', x.panel); else localStorage.removeItem('planeador-panel');
+    localStorage.setItem('planeador-seccion', 'plan');
+  } catch (e) { avisar('No pude abrir ese mes en este navegador: ' + e.message); return; }
+  location.reload();
+}
+async function pintarMeses() {
+  const s = document.getElementById('mesSel'); if (!s) return;
+  if (!ADMIN) { s.hidden = true; return; }
+  const L = await mesTodos(), cur = mesClave(D.anio, D.mes), hay = new Set(L.map(x => x.k)), op = [];
+  const base = new Date(Math.min(EMB.anio * 12 + EMB.mes - 1, D.anio * 12 + D.mes - 1) / 12 | 0, Math.min(EMB.anio * 12 + EMB.mes - 1, D.anio * 12 + D.mes - 1) % 12, 1);
+  for (let i = 0; i < 13; i++) { const f = new Date(base.getFullYear(), base.getMonth() + i, 1), k = mesClave(f.getFullYear(), f.getMonth() + 1); hay.add(k); }
+  for (const k of [...hay].sort()) {
+    const x = L.find(y => y.k === k), [a, m] = k.split('-').map(Number);
+    op.push(`<option value="${k}"${k === cur ? ' selected' : ''}>🗓 ${bonito(MESES_N[m - 1])} ${a}${x ? (x.emb ? ' · enviado a David' : ' · armado') : k === cur ? '' : ' · por armar'}</option>`);
+  }
+  s.innerHTML = op.join(''); s.hidden = false;
+  s.onchange = () => { const v = s.value; s.value = cur; if (v !== cur) mesAbrir(v); };
+}
+function mesAlarma() {                                  // quién falta por completar su plan en el mes abierto
+  const x = mesProgreso({ emb: !D._cargado, D }), f = x.faltan.sort((a, b) => b[2] - a[2]);
+  return f.length ? `<div class="mesAl mal">⚠ <b>${pl(f.length, 'persona no tiene', 'personas no tienen')} su plan completo de ${esc(D.mesNombre)}:</b> ${f.map(([u, n, k]) => `${esc(bonito(n).split(' ').slice(0, 2).join(' '))} (${pl(k, 'visita sin programar', 'visitas sin programar')})`).join(' · ')}</div>`
+    : `<div class="mesAl bien">✓ <b>Las ${x.personas} personas tienen su plan completo de ${esc(D.mesNombre)}</b> (${x.prog} de ${x.vis} visitas). Ya puedes descargar el consolidado.</div>`;
+}
+async function mesTabla() {                             // registro de todos los meses guardados (en Descargas)
+  const L = (await mesTodos()).sort((a, b) => b.k.localeCompare(a.k)), cur = mesClave(D.anio, D.mes);
+  if (!L.length) return '';
+  return `<div class="dcard"><div class="dct"><h3>🗓 Meses guardados</h3><span class="mu">Cada mes queda con su panel y su planificador. Ábrelo para seguir, revisar o descargar.</span></div>
+    <table class="dtab"><thead><tr><th>Mes</th><th>Planificador</th><th>Personas</th><th>Programadas</th><th>Faltan</th><th>Guardado</th><th></th></tr></thead><tbody>${L.map(x => { const p = mesProgreso(x);
+      return `<tr${x.k === cur ? ' style="background:#f3f8ff"' : ''}><td><b>${esc(x.nombre)}</b>${x.k === cur ? ' <span class="tagm">abierto</span>' : ''}</td><td>${esc(x.fuente || '')}${x.emb ? ' <span class="mu">(enviado a David)</span>' : ''}</td><td>${p.personas}</td><td>${p.prog} de ${p.vis} (${Math.round(p.prog / Math.max(1, p.vis) * 100)}%)</td>
+        <td>${p.faltan.length ? '<span style="color:var(--bad)">⚠ ' + pl(p.faltan.length, 'persona', 'personas') + '</span>' : '<span style="color:var(--ok)">✓ nadie</span>'}</td><td class="mu nw">${new Date(x.guardado).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</td>
+        <td class="r">${x.k === cur ? '' : `<button class="b2 sm mAb" data-k="${x.k}">Abrir</button>`}</td></tr>`; }).join('')}</tbody></table></div>`;
 }
 
 // --- arranque del visor del enlace corto: …/i/#<id 6><secreto 16><persona 2><vence> (solo letras y números) ---
