@@ -779,7 +779,7 @@ function invAnalisis(cod) {
   for (const v of it) {
     v.cedi = invCedi(cad, v.e, cod);                                                     // la existencia en el CEDI se muestra para todos
     if (v.est === 'agot' && v.qa > 0) v.nuevo = true;                                    // se agotó desde el inventario anterior
-    v.acc = v.est === 'neg' ? ['Pedir ajuste', 'n'] : v.est === 'ok' ? null : v.est === 'noap' ? ['Revisar en la visita', 'a'] : !v.cedi ? ['Pedir', 'a'] : v.cedi.length ? ['Pedir: hay en el CEDI', 'ok'] : ['Avisar al ejecutivo: no hay en el CEDI', 'r'];
+    v.acc = v.est === 'neg' ? ['Pedir ajuste', 'n'] : v.est === 'ok' ? null : v.est === 'noap' ? (cad === 'GRUPO EXITO' ? ['Codificar: avisar al ejecutivo', 'a'] : !v.cedi ? ['Revisar en la visita', 'a'] : v.cedi.length ? ['Revisar; si no hay, pedir (hay en el CEDI)', 'a'] : ['Revisar; no hay en el CEDI', 'a']) : !v.cedi ? ['Pedir', 'a'] : v.cedi.length ? ['Pedir: hay en el CEDI', 'ok'] : ['Avisar al ejecutivo: no hay en el CEDI', 'r'];
   }
   const n = k => it.filter(v => v.est === k).length, conRef = [...R.ref].filter(f => Object.entries(x.q).some(([e, q]) => q > 0 && invFam(e) === f)).length;
   const r = { cod, cad, f: x.f, fa: x.fa, g: x.g, it, agot: n('agot'), noap: n('noap'), bajo: n('bajo'), neg: n('neg'), precio: it.filter(v => v.precio && v.q > 0).length,
@@ -796,8 +796,11 @@ function invFuentesTxt() {
   for (const f of I.fuentes) if (f.nuestros && (!m[f.cadena] || f.fecha > m[f.cadena])) m[f.cadena] = f.fecha;
   return m;
 }
+const invNoap = cad => cad === 'GRUPO EXITO'
+  ? { t: 'No codificado en esta tienda', c: 'no codificados', d: 'Éxito manda siempre la lista de productos codificados de cada tienda (con su cantidad, aunque sea 0). Este no está en la lista: la tienda no lo tiene codificado. Hay que pedir que lo codifiquen.', celda: 'no codif.' }
+  : { t: 'En 0 (Olímpica no reporta los ceros)', c: 'en 0 sin reporte', d: 'Olímpica solo reporta lo que tiene existencia. Si no aparece, en su sistema está en 0 (o sin codificar). Revísalo en la visita.', celda: '0' };
 function invChips(a) {
-  return (a.agot ? `<em class="r">🔴 ${pl(a.agot, 'agotado', 'agotados')}</em>` : '') + (a.noap ? `<em class="w">⚪ ${a.noap} no aparecen</em>` : '') + (a.bajo ? `<em class="a">🟠 ${a.bajo} por agotarse</em>` : '') + (a.neg ? `<em class="n">🟣 ${pl(a.neg, 'error de inventario', 'errores de inventario')}</em>` : '') +
+  return (a.agot ? `<em class="r">🔴 ${pl(a.agot, 'agotado', 'agotados')}</em>` : '') + (a.noap ? `<em class="w">⚪ ${a.noap} ${invNoap(a.cad).c}</em>` : '') + (a.bajo ? `<em class="a">🟠 ${a.bajo} por agotarse</em>` : '') + (a.neg ? `<em class="n">🟣 ${pl(a.neg, 'error de inventario', 'errores de inventario')}</em>` : '') +
     (a.conv ? `<em class="c">⚠ ${a.conv} de marca con convenio</em>` : '') + (!a.agot && !a.noap && !a.bajo && !a.neg ? '<em class="ok">✅ surtido completo</em>' : '');
 }
 function invPorCadena(L) {                              // resumen por cadena (para el jefe / ejecutivo)
@@ -853,7 +856,7 @@ function pintarInv() {
   }
   h += `<div class="ivLey"><b>Cómo leerlo</b>
     <span><i>🔴 Agotado</i> la cadena lo reporta en cero</span>
-    <span><i>⚪ No aparece en el reporte</i> la cadena no lo reporta en esa tienda (Olímpica no manda ceros) → revisar en la visita</span>
+    <span><i>⚪ No aparece</i> Éxito: no está codificado en esa tienda → pedir codificar · Olímpica: en 0 (no reporta los ceros) → revisar en la visita</span>
     <span><i>🟠 Por agotarse</i> quedan muy pocas</span>
     <span><i>🟣 Error de inventario</i> la tienda reporta menos de cero → pedir ajuste</span>
     <span><i>En [la tienda]</i> unidades (empaques/cajas) que reporta el punto: exhibido + bodega del punto</span>
@@ -863,7 +866,7 @@ function pintarInv() {
     <div><b>${conDato.length}<small>/${todos.length}</small></b><span>${invDia ? 'puntos a visitar (' + esc(diaTxt(+invDia)) + ') con inventario' : 'puntos con inventario'}${sinArchivo ? ` · ${sinArchivo} sin archivo todavía` : ''}</span></div>
     <div class="s"><b>${ref ? invPct(conRef / ref) : '—'}</b><span>surtido: de lo que debería estar, cuánto hay</span></div>
     <div class="r"><b>${T('agot')}</b><span>🔴 agotados (la cadena los reporta en cero) en ${L.filter(a => a.agot).length} puntos · <b>${T('pedir')}</b> se pueden pedir: hay en el CEDI</span></div>
-    <div class="w"><b>${T('noap')}</b><span>⚪ no aparecen en el reporte → revisar en la visita</span></div>
+    <div class="w"><b>${T('noap')}</b><span>⚪ Éxito: no codificados en la tienda · Olímpica: en 0 (no los reporta)</span></div>
     <div class="a"><b>${T('bajo')}</b><span>🟠 por agotarse</span></div>
     <div class="n"><b>${T('neg')}</b><span>🟣 errores de inventario</span></div>
 </div>`;
@@ -928,7 +931,8 @@ function invDetalle(cod) {
     if (v.est === 'ok') return '';
     if (v.est === 'neg') return `El sistema de la tienda dice ${invNum(v.q)} (menos de cero): es un error del inventario. Pide al administrador que lo ajuste.`;
     const otros = cuantos(v) ? `${cuantos(v)} de tus ${nPts} ${cadN} sí lo tienen.` : `Ninguno de tus ${cadN} lo tiene todavía (producto o promoción nueva).`;
-    if (v.est === 'noap') return `La cadena no reporta este producto en ${tiendaN}. ${otros} Revísalo en la visita.` + (ce == null ? '' : ce > 0 ? ` 👉 Si no hay, en el ${cediN} hay ${invNum(ce)}: pídeselo al administrador.` : ` 👉 Si no hay, tampoco hay en el ${cediN}: avísale al ejecutivo.`);
+    if (v.est === 'noap' && a.cad === 'GRUPO EXITO') return `${tiendaN} no tiene este producto codificado (no está en la lista de la tienda). ${otros} 👉 Pídele al ejecutivo (KAM) que lo codifiquen.` + (ce > 0 ? ` En el ${cediN} hay ${invNum(ce)}.` : '');
+    if (v.est === 'noap') return `Olímpica no lo reporta en ${tiendaN}: en su sistema está en 0 (o sin codificar). ${otros} Revísalo en la visita.` + (ce == null ? '' : ce > 0 ? ` 👉 Si no hay, en el ${cediN} hay ${invNum(ce)}: pídeselo al administrador.` : ` 👉 Tampoco hay en el ${cediN}: avísale al ejecutivo.`);
     const que = v.est === 'agot' ? `${tiendaN} tiene 0 (la cadena lo reporta en cero). ${otros}` : `Quedan solo ${invNum(v.q)} en ${tiendaN} (tus otros ${cadN} suelen tener ${invNum(v.med)}).`;
     const b = ce == null ? '' : ce > 0 ? ` 👉 Hay ${invNum(ce)} en el ${cediN}: pídeselo al administrador.` : ` 👉 Tampoco hay en el ${cediN}: avísale al ejecutivo.`;
     return que + b; };
@@ -939,17 +943,18 @@ function invDetalle(cod) {
   const filaH = v => { const ce = v.cedi ? v.cedi.reduce((s, x) => s + x[1], 0) : null, fr = frase(v, ce), det = cediPorNombre(v);
     return `<div class="ivF"><div class="ivN"><b>${esc(v.d)}</b><span>${esc(v.m || v.c)} · EAN ${esc(v.e)}${v.otro ? ' (código anterior; el actual es ' + esc(v.otro) + ')' : ''}${v.cubre ? ' · en cero con este código, pero la tienda tiene ' + invNum(v.cubre) + ' con el otro código del mismo producto' : ''}${v.qa != null && v.qa !== v.q ? ' · el inventario anterior tenía ' + invNum(v.qa) : ''}${rotT(v)}</span>
       ${fr ? `<p class="ivFr">${esc(fr)}</p>` : ''}${det ? `<p class="ivCd">🏬 ${esc(det)}</p>` : ''}<i>${v.conv ? '<em class="c">⚠ marca con convenio</em>' : ''}${v.nuevo ? '<em class="r">se agotó desde el último inventario</em>' : ''}</i></div>
-      <div class="ivQs">${cel('En ' + tiendaN, v.est === 'agot' ? '0' : v.est === 'noap' ? 'sin dato' : invNum(v.q), 't-' + v.est)}${cel('En ' + cediN, ce == null ? '—' : invNum(ce))}
+      <div class="ivQs">${cel('En ' + tiendaN, v.est === 'agot' ? '0' : v.est === 'noap' ? invNoap(a.cad).celda : invNum(v.q), 't-' + v.est)}${cel('En ' + cediN, ce == null ? '—' : invNum(ce))}
       ${v.acc ? `<span class="ivAcc ${v.acc[1]}">${v.acc[0]}</span>` : ''}</div></div>`; };
-  const grupo = (k, L) => L.length ? `<div class="ivG g-${k}"><h4>${INV_EST[k].i} ${INV_EST[k].t} <small>${L.length}</small></h4><p class="ivGd">${INV_EST[k].d}</p>${L.map(filaH).join('')}</div>` : '';
+  const grupo = (k, L) => { if (!L.length) return ''; const e = k === 'noap' ? Object.assign({}, INV_EST.noap, invNoap(a.cad)) : INV_EST[k];
+    return `<div class="ivG g-${k}"><h4>${e.i} ${e.t} <small>${L.length}</small></h4><p class="ivGd">${e.d}</p>${L.map(filaH).join('')}</div>`; };
   const ok = it.filter(v => v.est === 'ok').sort((x, y) => String(x.m).localeCompare(String(y.m)) || y.q - x.q);
   el.innerHTML = `<div class="ivDh"><div><h3>${esc(pdv(cod)[0])}</h3><span>${esc(bonito(a.cad))} · código ${esc(cod)}${a.g ? ' · GLN ' + esc(a.g) : ''}${un && D.users[un] ? ' · ' + esc(bonito(D.users[un].nombre)) : ''} · inventario del ${invFecha(a.f)}${a.fa ? ' (antes: ' + invFecha(a.fa) + ')' : ''}</span></div>
       <button class="b2" id="ivDs">📋 Copiar</button></div>
     <div class="ivFe">📅 Inventario del <b>${invFecha(a.f)}</b> (${esc(bonito(a.cad))}, reporte del CEN)${a.fa ? ' · el anterior es del ' + invFecha(a.fa) : ''}<br>🏬 Lo surte: <b>${esc((() => { const x = invCediDe(a.cad, cod); if (x) return x; const C = (invDatos().cedis || {})[a.cad], n = C ? Object.keys(C.b) : []; return !n.length ? 'sin dato de CEDI' : 'por confirmar — se suman las bodegas de ' + cadN + ' (' + n.map(x => x.replace(/^(Centro de Distribución |CEDI |CD )/i, '')).join(' · ') + ')'; })())}</b></div>
     <div class="ivHay"><b>✅ En esta tienda hay ${a.unid.toLocaleString('es-CO')} unidades de ${a.skus} productos Haleon</b><div class="ivMs">${(() => { const m = {}; for (const v of a.it) if (v.q > 0) { const k = v.m || v.c; m[k] = m[k] || [0, 0]; m[k][0] += v.q; m[k][1]++; } return Object.entries(m).sort((x, y) => y[1][0] - x[1][0]).map(([k, [u, n]]) => `<span><b>${esc(k)}</b> ${Math.round(u).toLocaleString('es-CO')} u · ${n} ref.</span>`).join(''); })()}</div></div>
     <div class="ivRs">Esta tienda tiene <b>${a.conRef}</b> de los <b>${a.ref}</b> productos que manejan tus ${esc(cadN)} (surtido <b>${invPct(a.surt)}</b>).${a.noap ? ` ⚪ <b>${a.noap}</b> no aparecen en el reporte de la cadena: revísalos en la visita.` : ''}${a.agot ? ` 🔴 <b>${a.agot}</b> agotados${[a.pedir ? `<b>${a.pedir}</b> se pueden pedir (hay en el ${esc(invCediNom(a.cad, cod))})` : '', a.escalar ? `<b>${a.escalar}</b> no hay ni en el CEDI → avisar al ejecutivo` : ''].filter(Boolean).map((t, i) => (i ? ' y ' : ': ') + t).join('')}.` : ''}</div>
-    ${grupo('agot', it.filter(v => v.est === 'agot'))}${grupo('noap', it.filter(v => v.est === 'noap'))}${grupo('neg', it.filter(v => v.est === 'neg'))}${grupo('bajo', it.filter(v => v.est === 'bajo'))}
-    <details class="ivG g-ok" id="ivOk" open><summary><h4>✅ Con inventario <small>${ok.length}</small></h4> <span class="lnk">ocultar / mostrar</span></summary>${ok.map(filaH).join('')}</details>`;
+    <details class="ivG g-ok" id="ivOk" open><summary><h4>✅ Con inventario <small>${ok.length}</small></h4> <span class="lnk">ocultar / mostrar</span></summary>${ok.map(filaH).join('')}</details>
+    ${grupo('bajo', it.filter(v => v.est === 'bajo'))}${grupo('neg', it.filter(v => v.est === 'neg'))}${grupo('agot', it.filter(v => v.est === 'agot'))}${grupo('noap', it.filter(v => v.est === 'noap'))}`;
   $('#ivDs').onclick = async () => { const t = invTextoPunto(a); try { await navigator.clipboard.writeText(t); toast('✔ Copiado', 2500); } catch (e) { avisar(t); } };
 }
 function invEventos() {
@@ -974,7 +979,7 @@ function invLineas(a, max = 3) {                       // [qué hacer, a qué da
   const ag = a.it.filter(v => v.est === 'agot').sort((x, y) => imp(y) - imp(x)), bj = a.it.filter(v => v.est === 'bajo').sort((x, y) => imp(y) - imp(x)), out = [];
   if (ag.length) out.push(`🔴 ${pl(ag.length, 'agotado', 'agotados')}${a.pedir ? ` · ${a.pedir} hay en el CEDI → pedir` : ''}${a.conv ? ` · ⚠ ${a.conv} de marca con convenio` : ''}`, '   Primero: ' + ag.slice(0, max).map(v => invCorto(v.d)).join(', '));
   const na = a.it.filter(v => v.est === 'noap').sort((x, y) => imp(y) - imp(x));
-  if (na.length) out.push(`⚪ ${na.length} no aparecen en el reporte: revísalos en la visita (${na.slice(0, max).map(v => invCorto(v.d)).join(', ')}${na.length > max ? ' +' + (na.length - max) : ''})`);
+  if (na.length) out.push(`⚪ ${na.length} ${invNoap(a.cad).c}${a.cad === 'GRUPO EXITO' ? ' (pedir codificar)' : ': revísalos en la visita'} (${na.slice(0, max).map(v => invCorto(v.d)).join(', ')}${na.length > max ? ' +' + (na.length - max) : ''})`);
   if (bj.length) out.push('🟠 Por agotarse: ' + bj.slice(0, max).map(v => invCorto(v.d)).join(', ') + (bj.length > max ? ' +' + (bj.length - max) : ''));
   if (a.neg) out.push(`🟣 ${pl(a.neg, 'error de inventario', 'errores de inventario')}: pedir ajuste`);
   return out;
