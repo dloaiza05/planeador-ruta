@@ -232,6 +232,8 @@ body.modo-desc main,body.modo-desc #stats,body.modo-desc #undo,body.modo-desc #s
 #invSec .ivHay{background:var(--ok-s);border:1px solid #b7e4cf;border-radius:12px;padding:9px 11px;margin:6px 0}#invSec .ivHay>b{color:#065f46;font-size:14px}
 #invSec .ivMs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}#invSec .ivMs span{background:#fff;border-radius:20px;padding:2px 9px;font-size:12px;color:#374151}
 #invSec .ivKpi .ok b{color:var(--ok)}
+#invSec .ivDn{margin:3px 0 0;font-size:12px;color:#7c2d12;background:#fff7ed;border:1px solid #fed7aa;border-radius:7px;padding:2px 7px;display:inline-block}#invSec .ivDn.hoy{background:#fef3c7;border-color:#f59e0b;color:#78350f}#invSec .ivDn.al{background:#fee2e2;border-color:#fca5a5;color:#991b1b;display:block}
+#invSec .ivDm{margin:8px 0;padding:8px 11px;border-radius:10px;background:#fff7ed;border:1px solid #fed7aa;font-size:12.5px;color:#7c2d12;line-height:1.5}#invSec .ivDm .hoy{background:#fde68a;border-radius:5px;padding:0 4px;font-weight:700}#invSec .ivDm .r{color:#b91c1c}
 #invSec .ivCd{margin:2px 0 0;font-size:11.5px;color:var(--soft)}
 #invSec .ivC{max-width:120px}#invSec .ivC small{white-space:normal;line-height:1.15;text-align:center}
 #invSec .ivRs{background:#f7f9fc;border-radius:10px;padding:8px 10px;font-size:13px;margin:4px 0 6px}
@@ -697,6 +699,80 @@ const bajarBlob = () => { }, cvEntregar = async () => { };
 const VISOR = !!window.__VISOR, INV_K = 'planeador-inv-local', INV_CADENAS = ['GRUPO EXITO', 'OLIMPICA', 'CAFAM', 'COLSUBSIDIO'];
 let invPer = '', invCad = '', invQ = '', invSel = '', invMemo = null, invDia = null;
 const invLocal = () => { try { const x = JSON.parse(localStorage.getItem(INV_K) || 'null'); return x && typeof x === 'object' && x.pts && typeof x.pts === 'object' ? x : null; } catch (e) { return null; } };
+// =====================================================================================================
+// 🏷 DINÁMICAS Y DESCUENTOS: lo que manda el KAM de cada cadena (datos/DINAMICAS.xlsx, publicado) + lo que se sube aquí
+//    p: [cadena, [EAN…], producto, %|null, desde, hasta, dónde, fuente]   m: [cadena, fecha, cobertura, descuento, fuente]
+// =====================================================================================================
+const DIN_K = 'planeador-dinamicas-local';
+let dinMemo = null;
+const dinLocal = () => { try { return JSON.parse(localStorage.getItem(DIN_K) || 'null'); } catch (e) { return null; } };
+const hoyISO = () => { const t = new Date(); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'); };
+function invDin() {
+  if (dinMemo) return dinMemo;
+  const A = (D.inv || {}).din || {}, B = dinLocal(), p = [], m = [], kp = new Set(), km = new Set();
+  for (const src of [B, A]) if (src) {                                   // lo subido aquí manda sobre lo publicado
+    for (const r of Array.isArray(src.p) ? src.p : []) { if (!Array.isArray(r) || !Array.isArray(r[1]) || !/^\d{4}-\d\d-\d\d$/.test(r[4])) continue; const k = [r[0], r[1].join(' '), r[4], r[5]].join('|'); if (!kp.has(k)) { kp.add(k); p.push(r); } }
+    for (const r of Array.isArray(src.m) ? src.m : []) { if (!Array.isArray(r) || !/^\d{4}-\d\d-\d\d$/.test(r[1])) continue; const k = [r[0], r[1], r[3]].join('|'); if (!km.has(k)) { km.add(k); m.push(r); } }
+  }
+  const mes = D.anio + '-' + String(D.mes).padStart(2, '0'), ini = mes + '-01', fin = mes + '-31';
+  const out = { p: p.filter(r => r[4] <= fin && (r[5] || r[4]) >= ini), m: m.filter(r => r[1].startsWith(mes)).sort((a, b) => a[1] < b[1] ? -1 : 1), local: !!B, fuentes: [...(A.fuentes || []), ...((B && B.fuentes) || [])], ix: {} };
+  for (const r of out.p) for (const e of new Set(r[1].map(invFam))) (out.ix[r[0] + '|' + e] = out.ix[r[0] + '|' + e] || []).push(r);
+  return dinMemo = out;
+}
+const invDinDe = (cad, e) => invDin().ix[cad + '|' + invFam(e)] || [];
+const invDiaTxt = (a, b) => { const d = x => +x.slice(8, 10), mm = x => invFecha(x).split(' ')[1]; return a === b ? d(a) + ' ' + mm(a) : a.slice(0, 7) === b.slice(0, 7) ? d(a) + '–' + d(b) + ' ' + mm(a) : d(a) + ' ' + mm(a) + '–' + d(b) + ' ' + mm(b); };
+function invDinTxt(L) {                                  // agrupa por descuento y lugar: «10% de descuento · 3–4, 10–11 y 24–25 oct · Tienda y Rappi»
+  const g = {}, h = hoyISO();
+  for (const r of L) { const k = (r[3] == null ? '' : r[3]) + '|' + r[6]; (g[k] = g[k] || []).push(r); }
+  return Object.values(g).map(rs => {
+    rs.sort((x, y) => x[4] < y[4] ? -1 : 1); const r = rs[0], hoy = rs.some(x => x[4] <= h && (x[5] || x[4]) >= h), prox = rs.find(x => x[4] > h);
+    const todo = rs.length === 1 && r[4].endsWith('-01') && +(r[5] || '').slice(8) >= 28;
+    const fechas = todo ? 'todo el mes' : rs.map(x => invDiaTxt(x[4], x[5] || x[4])).join(', ').replace(/, ([^,]*)$/, ' y $1');
+    return { hoy, prox, pct: r[3], t: (r[3] != null ? r[3] + '% de descuento' : 'Actividad especial') + ' · ' + fechas + (r[6] ? ' · ' + r[6] : '') };
+  });
+}
+function invDinSubir() {                                 // ventana: subir el Excel de dinámicas, bajar la plantilla, quitar lo subido
+  const I = invDin(), B = dinLocal();
+  anclar(null); $('#modal').style.display = 'flex';
+  $('#mbox').innerHTML = `<h3>🏷 Dinámicas y descuentos</h3>
+    <p>Este mes hay <b>${I.p.length}</b> descuentos de producto y <b>${I.m.length}</b> días de descuento en las cadenas (${esc(I.fuentes.join(', ') || 'sin archivo')}). Se ven debajo del inventario de cada producto.</p>
+    <p class="mu">Para actualizar: toca <b>⬇ Plantilla</b> (sale con lo que ya hay), agrega o cambia filas (cadena, EAN, %, desde, hasta, dónde) y súbela con <b>📂 Subir</b>. Para que el equipo y el enlace de 6 h lo vean, guarda el archivo en Descargas con nombre <b>DINAMICAS….xlsx</b>: se publica con la actualización del inventario.</p>
+    <div class="enAcc"><button class="b1" id="dnS">📂 Subir Excel de dinámicas<small>uno o varios</small></button><button class="b2" id="dnP">⬇ Plantilla<small>con las dinámicas del mes</small></button>${B ? '<button class="b2" id="dnL">🗑 Quitar lo subido<small>vuelve a lo publicado</small></button>' : ''}</div>
+    <div class="acts"><span></span><button class="b2" id="dnC">Cerrar</button></div>`;
+  $('#dnC').onclick = cerrar;
+  $('#dnS').onclick = () => { const i = document.createElement('input'); i.type = 'file'; i.accept = '.xlsx'; i.multiple = true; i.onchange = () => i.files.length && invDinLeer([...i.files]); i.click(); };
+  $('#dnP').onclick = async () => {
+    const pr = [['Cadena', 'EAN (varios separados por espacio)', 'Producto', 'Descuento %', 'Desde (AAAA-MM-DD)', 'Hasta (AAAA-MM-DD)', 'Dónde aplica', 'Fuente']].concat(I.p.map(r => [r[0], r[1].join(' '), r[2], r[3] == null ? '' : r[3], r[4], r[5], r[6], r[7] || '']));
+    const di = [['Cadena', 'Fecha (AAAA-MM-DD)', 'Cobertura', 'Descuento', 'Fuente']].concat(I.m.map(r => [r[0], r[1], r[2], r[3], r[4] || '']));
+    await invXlsx([{ n: 'Productos', rows: pr, w: [13, 30, 42, 12, 14, 14, 30, 40] }, { n: 'Dias de descuento', rows: di, w: [13, 14, 20, 34, 40] }], 'DINAMICAS ' + bonito(D.mesNombre) + ' ' + D.anio + '.xlsx');
+    toast('✔ Plantilla descargada: cámbiala y súbela con 📂 Subir', 4500); };
+  if ($('#dnL')) $('#dnL').onclick = () => { try { localStorage.removeItem(DIN_K); } catch (e) { } dinMemo = null; cerrar(); pintarInv(); toast('✔ Listo: se ven las dinámicas publicadas', 3000); };
+}
+async function invDinLeer(files) {
+  if (typeof JSZip === 'undefined') { avisar('Para leer el archivo necesitas internet (la primera vez).'); return; }
+  const CAD = [['OLIMP', 'OLIMPICA'], ['EXITO', 'GRUPO EXITO'], ['CARULLA', 'GRUPO EXITO'], ['CAFAM', 'CAFAM'], ['COLSUB', 'COLSUBSIDIO'], ['CRUZ VERDE', 'CRUZ VERDE'], ['FARMATODO', 'FARMATODO'], ['LOCATEL', 'LOCATEL'], ['CENCO', 'CENCOSUD'], ['JUMBO', 'CENCOSUD'], ['MAKRO', 'MAKRO']];
+  const cad = t => { const n = invNorm(t); const x = CAD.find(([k]) => n.includes(k)); return x ? x[1] : n; };
+  const fecha = x => { if (typeof x === 'number' && x > 20000 && x < 80000) { const d = new Date(Date.UTC(1899, 11, 30) + x * 864e5); return d.toISOString().slice(0, 10); }
+    const t = String(x ?? '').trim(); let m = t.match(/^(\d{4})-(\d\d?)-(\d\d?)/); if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+    m = t.match(/^(\d\d?)[/-](\d\d?)[/-](\d{4})/); return m ? m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0') : ''; };
+  const pct = x => { if (x == null || x === '') return null; if (typeof x === 'number') return Math.round((x > 0 && x < 1 ? x * 100 : x) * 10) / 10; const m = String(x).match(/(\d+(?:[.,]\d+)?)/); return m ? +m[1].replace(',', '.') : null; };
+  const B = dinLocal() || { p: [], m: [], fuentes: [] }, msg = [];
+  for (const f of files) {
+    let L; try { L = await leerLibro(new Uint8Array(await f.arrayBuffer())); } catch (e) { msg.push('✖ ' + f.name + ': no es un Excel (.xlsx)'); continue; }
+    let np = 0, nm = 0;
+    for (const [nom, ruta] of Object.entries(L.hojas)) {
+      const t = invNorm(nom), xml = await L.zip.file(ruta).async('string'); let i = 0;
+      for (const m of xml.matchAll(/<row [^>]*>([\s\S]*?)<\/row>/g)) { if (i++ === 0) continue; const c = celdas(m[0], L.ss); if (!c.A) continue;
+        if (t.startsWith('PRODUCTO')) { const e = String(c.B ?? '').match(/\d{8,14}/g), d1 = fecha(c.E), d2 = fecha(c.F) || d1; if (!e || !d1) continue; B.p.push([cad(c.A), e, String(c.C || '').trim(), pct(c.D), d1, d2, String(c.G || '').trim(), String(c.H || '').trim() || f.name]); np++; }
+        else if (t.startsWith('DIA')) { const d = fecha(c.B); if (!d) continue; B.m.push([cad(c.A), d, String(c.C || '').trim(), String(c.D || '').trim(), String(c.E || '').trim() || f.name]); nm++; } }
+    }
+    if (np + nm) { B.fuentes = [...new Set([...(B.fuentes || []), f.name])]; msg.push('✔ ' + f.name + ': ' + pl(np, 'descuento de producto', 'descuentos de producto') + ' · ' + pl(nm, 'día de descuento', 'días de descuento')); }
+    else msg.push('✖ ' + f.name + ': no encontré las hojas «Productos» / «Dias de descuento» (usa la plantilla ⬇)');
+  }
+  if (!B.p.length && !B.m.length) { avisar(msg.join('\n')); return; }
+  try { localStorage.setItem(DIN_K, JSON.stringify(B)); } catch (e) { avisar('No pude guardar en este equipo (espacio lleno).'); return; }
+  dinMemo = null; cerrar(); pintarInv(); avisar(msg.join('\n') + '\n\nQueda guardado en este equipo. Para el equipo y el enlace de 6 h: guarda el archivo en Descargas como DINAMICAS….xlsx y se publica con el inventario.');
+}
 function invDatos() {                                   // publicado + subido aquí; por punto gana la foto más nueva
   if (invMemo) return invMemo;
   const A = D.inv || {}, B = invLocal() || {};
@@ -758,6 +834,7 @@ function invRef(cad) {                                  // lo normal en tus punt
     for (const [e, p] of Object.entries(x.p || {})) (precios[e] = precios[e] || {})[p] = (precios[e][p] || 0) + 1;
   }
   const ref = new Set(n >= 3 ? Object.keys(cuenta).filter(e => cuenta[e] / n >= 0.5) : []), med = {}, pm = {};
+  for (const e of (((D.inv || {}).port || {})[cad] || [])) if (n && (I.prod[e] || cuenta[invFam(e)])) ref.add(invFam(e));   // portafolio de la cadena (lista del KAM)
   for (const [e, v] of Object.entries(vals)) { v.sort((a, b) => a - b); med[e] = v[Math.floor(v.length / 2)]; }
   for (const [e, m] of Object.entries(precios)) pm[e] = +Object.entries(m).sort((a, b) => b[1] - a[1])[0][0];   // el precio más común
   return invRef.c[cad] = { ref, cuenta, n, frac, med, pm };
@@ -767,7 +844,7 @@ function invAnalisis(cod) {
   const cad = invCadena(cod), R = invRef(cad), P = I.prod, it = [], conv = invMarcasConv(cod);
   const fila = (e, q, est) => { const p = P[e] || ['EAN ' + e, '', 'Otros'], pr = (x.p || {})[e], pm = R.pm[e];
     return { e, d: p[0], m: p[1], c: p[2], q, qa: x.qa ? x.qa[e] : undefined, est, conv: conv.includes(p[1]), med: R.med[e] || 0, dist: R.n ? (R.cuenta[invFam(e)] || 0) / R.n : 0,
-      pr, pm, precio: pr && pm && Math.abs(pr - pm) / pm > 0.05, rot: (x.r || {})[e] }; };
+      pr, pm, precio: pr && pm && Math.abs(pr - pm) / pm > 0.05, rot: (x.r || {})[e], din: invDinDe(cad, e) }; };
   const famQ = {}; for (const [e, q] of Object.entries(x.q)) if (q > 0) famQ[invFam(e)] = (famQ[invFam(e)] || 0) + q;
   for (const [e, q] of Object.entries(x.q)) {
     if (q === 0 && famQ[invFam(e)] > 0) { const v = fila(e, 0, 'ok'); v.cubre = famQ[invFam(e)]; it.push(v); continue; }   // lo tiene con el otro código
@@ -787,7 +864,9 @@ function invAnalisis(cod) {
     skus: it.filter(v => v.q > 0).length, unid: Math.round(it.reduce((t, v) => t + (v.q > 0 ? v.q : 0), 0)), ref: R.ref.size, conRef, surt: R.ref.size ? conRef / R.ref.size : 1,
     pedir: it.filter(v => v.est === 'agot' && v.cedi && v.cedi.length).length, escalar: it.filter(v => v.est === 'agot' && v.cedi && !v.cedi.length).length,
     conv: it.filter(v => v.conv && v.est === 'agot').length, quietos: it.filter(v => v.rot && v.rot[2] >= 3).length, pronto: it.filter(v => v.rot && v.rot[1] >= 0 && v.rot[1] <= 3).length, rotacion: !!x.r };
-  r.prio = r.agot * 3 + r.conv * 4 + r.neg * 2 + r.bajo + r.pronto + r.noap;
+  const famOk = new Set(it.filter(v => v.din.length && v.est === 'ok').map(v => invFam(v.e)));   // por producto (código viejo y nuevo cuentan una vez)
+  r.din = new Set(it.filter(v => v.din.length).map(v => invFam(v.e))).size; r.dinF = new Set(it.filter(v => v.din.length && v.est !== 'ok' && !famOk.has(invFam(v.e))).map(v => invFam(v.e))).size;
+  r.prio = r.agot * 3 + r.conv * 4 + r.neg * 2 + r.bajo + r.pronto + r.noap + r.dinF * 3;
   return r;
 }
 const INV_ORD = { agot: 0, noap: 1, neg: 2, bajo: 3, ok: 4 };
@@ -802,7 +881,7 @@ const invNoap = cad => cad === 'GRUPO EXITO'
   : { t: 'En 0 (Olímpica no reporta los ceros)', c: 'en 0 sin reporte', d: 'Olímpica solo reporta lo que tiene existencia. Si no aparece, en su sistema está en 0 (o sin codificar). Revísalo en la visita.', celda: '0' };
 function invChips(a) {
   return (a.agot ? `<em class="r">🔴 ${pl(a.agot, 'agotado', 'agotados')}</em>` : '') + (a.noap ? `<em class="w">⚪ ${a.noap} ${invNoap(a.cad).c}</em>` : '') + (a.bajo ? `<em class="a">🟠 ${a.bajo} por agotarse</em>` : '') + (a.neg ? `<em class="n">🟣 ${pl(a.neg, 'error de inventario', 'errores de inventario')}</em>` : '') +
-    (a.conv ? `<em class="c">⚠ ${a.conv} de marca con convenio</em>` : '') + (!a.agot && !a.noap && !a.bajo && !a.neg ? '<em class="ok">✅ surtido completo</em>' : '');
+    (a.conv ? `<em class="c">⚠ ${a.conv} de marca con convenio</em>` : '') + (a.dinF ? `<em class="c">🏷 ${a.dinF} con dinámica sin producto</em>` : '') + (!a.agot && !a.noap && !a.bajo && !a.neg ? '<em class="ok">✅ surtido completo</em>' : '');
 }
 function invPorCadena(L) {                              // resumen por cadena (para el jefe / ejecutivo)
   const m = {};
@@ -845,7 +924,7 @@ function pintarInv() {
     <select id="ivC" aria-label="Cadena"><option value="">Todas las cadenas</option>${cads.filter(c => conDato.some(x => invCadena(x) === c)).map(c => `<option value="${esc(c)}"${c === invCad ? ' selected' : ''}>${esc(bonito(c))}</option>`).join('')}</select>
     <input id="ivQ" type="search" placeholder="Buscar punto o producto…" value="${esc(invQ)}">
     <span class="sep"></span>
-    ${ADMIN && !VISOR ? '<button class="b2" id="ivS" title="Subir los Excel INVRPT que descargas del CEN: puedes escoger varios a la vez (Éxito y Olímpica)">📂 Subir inventario</button>' : ''}${ADMIN && !VISOR && invLocal() ? '<button class="b2" id="ivL" title="Borra de este computador lo que subiste y vuelve al inventario publicado">🗑 Limpiar lo subido</button>' : ''}
+    ${ADMIN && !VISOR ? '<button class="b2" id="ivS" title="Subir los Excel INVRPT que descargas del CEN: puedes escoger varios a la vez (Éxito y Olímpica)">📂 Subir inventario</button>' : ''}${ADMIN && !VISOR ? '<button class="b2" id="ivDS" title="Subir el Excel de dinámicas comerciales y descuentos de las cadenas">🏷 Dinámicas</button>' : ''}${ADMIN && !VISOR && invLocal() ? '<button class="b2" id="ivL" title="Borra de este computador lo que subiste y vuelve al inventario publicado">🗑 Limpiar lo subido</button>' : ''}
     ${ADMIN && !VISOR && COORD && COORD.invVista ? '<button class="b1" id="ivE" title="Enlace que solo muestra el inventario y se vence en 6 horas">🔗 Enlace 6 h</button>' : ''}${VISOR ? '' : '<button class="b2" id="ivSh">📤 Compartir</button>'}${ADMIN && !VISOR ? '<button class="b2" id="ivX">⬇ Excel</button>' : ''}</div>`;
   if (!conDato.length && invDia) {
     h += `<div class="cvCar">${Object.keys(vis).length ? 'Los puntos que se visitan (' + esc(diaTxt(+invDia)) + ')' + ' no tienen archivo de inventario todavía' + (sinArchivo ? ' (' + pl(sinArchivo, 'visita', 'visitas') + ')' : '') + '.' : 'No hay visitas agendadas (' + esc(diaTxt(+invDia)) + ').'}<br><button class="b2" id="ivTodo">Ver todos los puntos</button></div>`;
@@ -899,6 +978,10 @@ function invEjecutivo(L, u) {                           // 📊 para el jefe / e
   h += `<div class="ivBx"><h4>Presencia por marca <small>(% de tus puntos que tienen la marca)</small></h4><table class="ivTb"><tr><th>Marca</th>${cads.map(c => `<th>${esc(bonito(c))}</th>`).join('')}</tr>${marcas.map(({ m, x }) => `<tr><td>${esc(m)}</td>${cads.map(c => { const y = x[c]; if (!y) return '<td>—</td>'; const p = y.con.size / y.pts.size; return `<td><b class="${p < 0.8 ? 'r' : 'ok'}">${invPct(p)}</b> <small>${y.con.size}/${y.pts.size}</small></td>`; }).join('')}</tr>`).join('')}</table></div>`;
   if (TOP.length) h += `<div class="ivBx ivBw"><h4>🔎 Lo que más falta ${u ? 'en tus puntos' : 'en la ruta'}</h4><table class="ivTb"><tr><th>Producto</th><th>Cadena</th><th>Agotado en</th><th>CEDI</th><th>Qué hacer</th></tr>${TOP.map(t => { const ce = invCedi(t.cad, t.v.e), tot = ce ? ce.reduce((s, x) => s + x[1], 0) : null;
     return `<tr><td><b>${esc(t.v.d)}</b><br><small>${esc(t.v.m || '')} · EAN ${esc(t.v.e)}</small></td><td>${esc(bonito(t.cad))}</td><td><b>${t.n}</b> puntos</td><td>${tot == null ? '—' : invNum(tot)}</td><td class="${tot ? 'ok' : 'r'}">${tot == null ? 'Pedir' : tot ? 'Pedir: hay en el CEDI' : 'Avisar al ejecutivo: no hay en el CEDI'}</td></tr>`; }).join('')}</table></div>`;
+  { const G = {}; for (const a of L) for (const v of a.it) if (v.din && v.din.length) { const k = a.cad + '|' + invFam(v.e), g = G[k] = G[k] || { cad: a.cad, v, pts: 0, con: 0, falta: [] }; g.pts++; if (v.est === 'ok') g.con++; else g.falta.push(pdv(a.cod)[0]); }
+    const LG = Object.values(G).sort((x, y) => y.falta.length - x.falta.length || x.v.d.localeCompare(y.v.d)), MD = invDin().m.filter(r => cads.includes(r[0]));
+    if (LG.length || MD.length) h += `<div class="ivBx ivBw"><h4>🏷 Dinámicas del mes vs inventario <small>(¿hay producto donde hay descuento?)</small></h4>${MD.length ? `<p class="mu">📅 Días de descuento: ${MD.map(r => `${esc(bonito(r[0]))} ${esc(invDiaTxt(r[1], r[1]))}: ${esc(r[3])}${r[2] ? ' (' + esc(r[2]) + ')' : ''}`).join(' · ')}</p>` : ''}
+      ${LG.length ? `<table class="ivTb"><tr><th>Producto</th><th>Cadena</th><th>Dinámica</th><th>Con producto</th><th>⚡ Sin producto suficiente</th></tr>${LG.map(g => `<tr><td><b>${esc(g.v.d)}</b><br><small>${esc(g.v.m || '')} · EAN ${esc(g.v.e)}</small></td><td>${esc(bonito(g.cad))}</td><td><small>${invDinTxt(g.v.din).map(x => esc(x.t)).join('<br>')}</small></td><td class="ok"><b>${g.con}</b> de ${g.pts}</td><td class="${g.falta.length ? 'r' : 'ok'}">${g.falta.length ? `<b>${g.falta.length}</b> <small>${g.falta.slice(0, 8).map(esc).join(' · ')}${g.falta.length > 8 ? ' +' + (g.falta.length - 8) : ''}</small>` : '✓ ninguno'}</td></tr>`).join('')}</table>` : ''}</div>`; }
   if (rot) {
     const q = [], p = []; for (const a of L) for (const v of a.it) { if (v.rot && v.rot[2] >= 3) q.push([a, v]); if (v.rot && v.rot[1] >= 0 && v.rot[1] <= 3) p.push([a, v]); }
     h += `<div class="ivBx ivBw"><h4>🔄 Rotación</h4><p class="mu">⏳ <b>${q.length}</b> productos sin movimiento hace 3 días o más · ⚡ <b>${p.length}</b> se acaban en 3 días o menos (al ritmo que vienen vendiendo).</p>
@@ -915,6 +998,8 @@ function invTextoEjecutivo() {
   if (bajas.length) t += '\n\n*Marcas con poca presencia:*\n' + bajas.sort((a, b) => a[0] - b[0]).slice(0, 6).map(x => '• ' + x[1]).join('\n');
   const top = {}; for (const a of L) for (const v of a.it) if (v.est === 'agot') { const k = a.cad + '|' + v.e, z = top[k] = top[k] || { v, n: 0, cad: a.cad }; z.n++; }
   const T = Object.values(top).sort((a, b) => b.n - a.n).slice(0, 6);
+  { const G = {}; for (const a of L) for (const v of a.it) if (v.din && v.din.length && v.est !== 'ok') { const k = a.cad + '|' + invFam(v.e); (G[k] = G[k] || { v, cad: a.cad, n: 0 }).n++; }
+    const X = Object.values(G).sort((a, b) => b.n - a.n).slice(0, 6); if (X.length) t += '\n\n*🏷 Con dinámica y sin producto suficiente:*\n' + X.map(z => `• ${invCorto(z.v.d)} (${bonito(z.cad)}, ${invDinTxt(z.v.din)[0].t.split(' · ')[0]}): ${pl(z.n, 'punto', 'puntos')}`).join('\n'); }
   if (T.length) t += '\n\n*Lo que más falta:*\n' + T.map(z => { const ce = invCedi(z.cad, z.v.e), tot = ce ? ce.reduce((s, x) => s + x[1], 0) : null; return `• ${invCorto(z.v.d)} (${bonito(z.cad)}): agotado en ${z.n} puntos${tot == null ? '' : tot ? ` · CEDI ${invNum(tot)}` : ' · no hay en el CEDI'}`; }).join('\n');
   return t;
 }
@@ -943,7 +1028,7 @@ function invDetalle(cod) {
     return con.length ? 'Por CD: ' + con.map(k => k.replace(/^(Centro de Distribución\s+)?(CEDI|CD)\s+/i, 'CD ').replace(/\s+/g, ' ') + ': ' + invNum(C.b[k][v.e])).join(' · ') : 'En ningún CD de la cadena hay'; };
   const filaH = v => { const ce = v.cedi ? v.cedi.reduce((s, x) => s + x[1], 0) : null, fr = frase(v, ce), det = cediPorNombre(v);
     return `<div class="ivF"><div class="ivN"><b>${esc(v.d)}</b><span>${esc(v.m || v.c)} · EAN ${esc(v.e)}${v.otro ? ' (código anterior; el actual es ' + esc(v.otro) + ')' : ''}${v.cubre ? ' · en cero con este código, pero la tienda tiene ' + invNum(v.cubre) + ' con el otro código del mismo producto' : ''}${v.qa != null && v.qa !== v.q ? ' · el inventario anterior tenía ' + invNum(v.qa) : ''}${rotT(v)}</span>
-      ${fr ? `<p class="ivFr">${esc(fr)}</p>` : ''}${det ? `<p class="ivCd">🏬 ${esc(det)}</p>` : ''}<i>${v.conv ? '<em class="c">⚠ marca con convenio</em>' : ''}${v.nuevo ? '<em class="r">se agotó desde el último inventario</em>' : ''}</i></div>
+      ${fr ? `<p class="ivFr">${esc(fr)}</p>` : ''}${det ? `<p class="ivCd">🏬 ${esc(det)}</p>` : ''}${v.din && v.din.length ? invDinTxt(v.din).map(x => `<p class="ivDn${x.hoy ? ' hoy' : ''}">🏷 ${esc(x.t)}${x.hoy ? ' · <b>¡HOY!</b>' : ''}</p>`).join('') + (v.est !== 'ok' ? '<p class="ivDn al">⚡ Tiene dinámica este mes y no hay producto suficiente: es prioridad.</p>' : '') : ''}<i>${v.conv ? '<em class="c">⚠ marca con convenio</em>' : ''}${v.nuevo ? '<em class="r">se agotó desde el último inventario</em>' : ''}</i></div>
       <div class="ivQs">${cel('En ' + tiendaN, v.est === 'agot' ? '0' : v.est === 'noap' ? invNoap(a.cad).celda : invNum(v.q), 't-' + v.est)}${cel('En ' + cediN, ce == null ? '—' : invNum(ce))}
       ${v.acc ? `<span class="ivAcc ${v.acc[1]}">${v.acc[0]}</span>` : ''}</div></div>`; };
   const grupo = (k, L) => { if (!L.length) return ''; const e = k === 'noap' ? Object.assign({}, INV_EST.noap, invNoap(a.cad)) : INV_EST[k];
@@ -952,6 +1037,8 @@ function invDetalle(cod) {
   el.innerHTML = `<div class="ivDh"><div><h3>${esc(pdv(cod)[0])}</h3><span>${esc(bonito(a.cad))} · código ${esc(cod)}${a.g ? ' · GLN ' + esc(a.g) : ''}${un && D.users[un] ? ' · ' + esc(bonito(D.users[un].nombre)) : ''} · inventario del ${invFecha(a.f)}${a.fa ? ' (antes: ' + invFecha(a.fa) + ')' : ''}</span></div>
       <button class="b2" id="ivDs">📋 Copiar</button></div>
     <div class="ivFe">📅 Inventario del <b>${invFecha(a.f)}</b> (${esc(bonito(a.cad))}, reporte del CEN)${a.fa ? ' · el anterior es del ' + invFecha(a.fa) : ''}<br>🏬 Lo surte: <b>${esc((() => { const x = invCediDe(a.cad, cod); if (x) return x; const C = (invDatos().cedis || {})[a.cad], n = C ? Object.keys(C.b) : []; return !n.length ? 'sin dato de CEDI' : 'por confirmar — se suman las bodegas de ' + cadN + ' (' + n.map(x => x.replace(/^(Centro de Distribución |CEDI |CD )/i, '')).join(' · ') + ')'; })())}</b></div>
+    ${(() => { const md = invDin().m.filter(r => r[0] === a.cad), h = hoyISO(); if (!md.length && !a.din) return '';
+      return `<div class="ivDm">🏷 <b>Dinámicas de ${esc(cadN)} este mes:</b> ${a.din ? pl(a.din, 'producto con descuento o actividad', 'productos con descuento o actividad') + ' en esta tienda' + (a.dinF ? ` · <b class="r">⚡ ${a.dinF} sin producto suficiente</b>` : ' · todos con producto ✅') : 'ningún producto de esta tienda'}${md.length ? '<br>📅 Días de descuento: ' + md.map(r => `<span${r[1] === h ? ' class="hoy"' : ''}>${esc(invDiaTxt(r[1], r[1]))} ${esc(r[3])}${r[2] ? ' (' + esc(r[2]) + ')' : ''}${r[1] === h ? ' · ¡HOY!' : ''}</span>`).join(' · ') : ''}</div>`; })()}
     <div class="ivHay"><b>✅ En esta tienda hay ${a.unid.toLocaleString('es-CO')} unidades de ${a.skus} productos Haleon</b><div class="ivMs">${(() => { const m = {}; for (const v of a.it) if (v.q > 0) { const k = v.m || v.c; m[k] = m[k] || [0, 0]; m[k][0] += v.q; m[k][1]++; } return Object.entries(m).sort((x, y) => y[1][0] - x[1][0]).map(([k, [u, n]]) => `<span><b>${esc(k)}</b> ${Math.round(u).toLocaleString('es-CO')} u · ${n} ref.</span>`).join(''); })()}</div></div>
     <div class="ivRs">Esta tienda tiene <b>${a.conRef}</b> de los <b>${a.ref}</b> productos que manejan tus ${esc(cadN)} (surtido <b>${invPct(a.surt)}</b>).${a.noap ? ` ⚪ <b>${a.noap}</b> no aparecen en el reporte de la cadena: revísalos en la visita.` : ''}${a.agot ? ` 🔴 <b>${a.agot}</b> agotados${[a.pedir ? `<b>${a.pedir}</b> se pueden pedir (hay en el ${esc(invCediNom(a.cad, cod))})` : '', a.escalar ? `<b>${a.escalar}</b> no hay ni en el CEDI → avisar al ejecutivo` : ''].filter(Boolean).map((t, i) => (i ? ' y ' : ': ') + t).join('')}.` : ''}</div>
     <details class="ivG g-ok" id="ivOk" open><summary><h4>✅ Con inventario <small>${ok.length}</small></h4> <span class="lnk">ocultar / mostrar</span></summary>${ok.map(filaH).join('')}</details>
@@ -966,7 +1053,7 @@ function invEventos() {
   on('ivTodo', () => { invDia = ''; invSel = ''; pintarInv(); });
   if ($('#ivQ')) { let t; $('#ivQ').oninput = () => { clearTimeout(t); t = setTimeout(() => { invQ = $('#ivQ').value; const p = $('#ivQ').selectionStart; pintarInv(); const i = $('#ivQ'); i.focus(); i.setSelectionRange(p, p); }, 250); }; }
   document.querySelectorAll('#invIn [data-iv]').forEach(b => b.onclick = () => { invSel = b.dataset.iv; invDetalle(invSel); if (innerWidth < 860) $('#ivDet').scrollIntoView({ behavior: 'smooth' }); });
-  on('ivS', invElegirArchivo); on('ivSh', invCompartir); on('ivX', invExcel); on('ivE', invEnlace);
+  on('ivS', invElegirArchivo); on('ivDS', invDinSubir); on('ivSh', invCompartir); on('ivX', invExcel); on('ivE', invEnlace);
   on('ivL', () => { const B = invLocal() || {}; anclar(null); $('#modal').style.display = 'flex';
     $('#mbox').innerHTML = `<h3>🗑 Limpiar lo subido</h3><p>Se borra de este computador lo que subiste con «📂 Subir inventario» (${(B.fuentes || []).length} archivo(s)) y la página vuelve al inventario publicado del ${esc(invDatos().generado || '')}. Los Excel originales no se borran.</p><div class="acts"><button class="b2" id="ivLn">Cancelar</button><button class="b1" id="ivLs">Sí, limpiar</button></div>`;
     $('#ivLn').onclick = cerrar; $('#ivLs').onclick = () => { try { localStorage.removeItem(INV_K); } catch (e) { } invMemo = null; invRef.c = null; cerrar(); pintarInv(); toast('✔ Listo: se ve el inventario publicado', 3000); }; });
@@ -1047,10 +1134,10 @@ async function invXlsx(hojas, nombre) {                 // Excel de varias hojas
 }
 async function invExcel() {                             // Detalle + Por cadena + Por marca + Lo que más falta (+ Rotación)
   const L = invPuntosDe(invPer).map(invAnalisis).filter(a => a && (!invCad || a.cad === invCad));
-  const det = [['Cadena', 'Código PDV', 'Punto', 'GLN', 'CEDI que lo surte', 'Mercaderista', 'Usuario', 'Fecha inventario', 'Estado', 'Qué hacer', 'Producto', 'Marca', 'Categoría', 'EAN', 'En esta tienda', 'Suelen tener tus otros puntos', 'CEDI de la cadena (bodega central)', 'Detalle CEDI', '% de tus puntos que lo tienen', 'Cantidad anterior', 'Vende por día (estimado)', 'Días que alcanza', 'Días sin movimiento', 'Marca con convenio']];
+  const det = [['Cadena', 'Código PDV', 'Punto', 'GLN', 'CEDI que lo surte', 'Mercaderista', 'Usuario', 'Fecha inventario', 'Estado', 'Qué hacer', 'Producto', 'Marca', 'Categoría', 'EAN', 'En esta tienda', 'Suelen tener tus otros puntos', 'CEDI de la cadena (bodega central)', 'Detalle CEDI', '% de tus puntos que lo tienen', 'Cantidad anterior', 'Vende por día (estimado)', 'Días que alcanza', 'Días sin movimiento', 'Marca con convenio', 'Dinámica del mes']];
   for (const a of L) { const un = invDueno(a.cod);
     for (const v of a.it.slice().sort((x, y) => INV_ORD[x.est] - INV_ORD[y.est])) { const ce = v.cedi ? v.cedi.reduce((s, x) => s + x[1], 0) : '';
-      det.push([bonito(a.cad), a.cod, pdv(a.cod)[0], a.g || '', invCediDe(a.cad, a.cod) || 'por confirmar', un && D.users[un] ? bonito(D.users[un].nombre) : '', un, a.f, INV_EST[v.est].t, v.acc ? v.acc[0] : '', v.d, v.m, v.c, v.e, v.est === 'agot' ? 0 : v.q, v.med || '', ce, v.cedi ? (v.cedi.length ? v.cedi.map(x => x[0] + ': ' + invNum(x[1])).join(' · ') : 'No hay') : '', Math.round(v.dist * 100) / 100, v.qa ?? '', v.rot ? v.rot[0] : '', v.rot && v.rot[1] >= 0 ? v.rot[1] : '', v.rot ? v.rot[2] : '', v.conv ? 'Sí' : '']); } }
+      det.push([bonito(a.cad), a.cod, pdv(a.cod)[0], a.g || '', invCediDe(a.cad, a.cod) || 'por confirmar', un && D.users[un] ? bonito(D.users[un].nombre) : '', un, a.f, INV_EST[v.est].t, v.acc ? v.acc[0] : '', v.d, v.m, v.c, v.e, v.est === 'agot' ? 0 : v.q, v.med || '', ce, v.cedi ? (v.cedi.length ? v.cedi.map(x => x[0] + ': ' + invNum(x[1])).join(' · ') : 'No hay') : '', Math.round(v.dist * 100) / 100, v.qa ?? '', v.rot ? v.rot[0] : '', v.rot && v.rot[1] >= 0 ? v.rot[1] : '', v.rot ? v.rot[2] : '', v.conv ? 'Sí' : '', v.din && v.din.length ? invDinTxt(v.din).map(x => x.t).join(' | ') : '']); } }
   const C = invPorCadena(L), cad = [['Cadena', 'Puntos', 'Surtido (de lo que debería estar, cuánto hay)', 'Agotados (reportados en cero)', 'Puntos con agotados', 'No aparecen en el reporte', 'Se pueden pedir (hay en el CEDI)', 'No hay ni en el CEDI (escalar)', 'Por agotarse', 'Errores de inventario']].concat(C.map(x => [bonito(x.cad), x.pts, x.ref ? Math.round(x.conRef / x.ref * 100) / 100 : '', x.agot, x.ptsAgot, x.noap || 0, x.pedir, x.escalar, x.bajo, x.neg]));
   const M = invPorMarca(L), mar = [['Marca', 'Cadena', 'Puntos que la tienen', 'Puntos de la cadena', '% de presencia']];
   for (const [m, x] of Object.entries(M)) for (const [c, y] of Object.entries(x)) mar.push([m, bonito(c), y.con.size, y.pts.size, Math.round(y.con.size / y.pts.size * 100) / 100]);
@@ -1058,7 +1145,10 @@ async function invExcel() {                             // Detalle + Por cadena 
   const top = {}; for (const a of L) for (const v of a.it) if (v.est === 'agot') { const k = a.cad + '|' + v.e, t = top[k] = top[k] || { v, cad: a.cad, pts: [] }; t.pts.push(pdv(a.cod)[0]); }
   const fal = [['Producto', 'Marca', 'EAN', 'Cadena', 'Agotado en (puntos)', 'CEDI de la cadena', 'Qué hacer', 'Puntos']].concat(Object.values(top).sort((a, b) => b.pts.length - a.pts.length).map(t => { const ce = invCedi(t.cad, t.v.e), tot = ce ? ce.reduce((s, x) => s + x[1], 0) : ''; return [t.v.d, t.v.m, t.v.e, bonito(t.cad), t.pts.length, tot, tot === '' ? 'Pedir' : tot ? 'Pedir: hay en el CEDI' : 'Avisar al ejecutivo: no hay en el CEDI', t.pts.join(' · ')]; }));
   const hojas = [{ n: 'Por cadena', rows: cad, w: [16, 8, 20, 12, 12, 14, 16, 14, 12, 12] }, { n: 'Lo que más falta', rows: fal, w: [42, 16, 16, 14, 12, 12, 24, 80] }, { n: 'Presencia por marca', rows: mar, w: [22, 14, 12, 12, 12] },
-    { n: 'Detalle', rows: det, w: [14, 11, 32, 15, 22, 28, 14, 12, 18, 24, 42, 16, 14, 15, 9, 10, 10, 36, 12, 10, 10, 10, 10, 10] }];
+    { n: 'Detalle', rows: det, w: [14, 11, 32, 15, 22, 28, 14, 12, 18, 24, 42, 16, 14, 15, 9, 10, 10, 36, 12, 10, 10, 10, 10, 10, 48] }];
+  { const I = invDin(), cs = new Set(L.map(a => a.cad)); if (I.p.length || I.m.length) hojas.push({ n: 'Dinámicas', w: [14, 30, 42, 12, 14, 14, 30, 16, 16, 40],
+      rows: [['Cadena', 'EAN', 'Producto', 'Descuento %', 'Desde', 'Hasta', 'Dónde aplica', 'Tus puntos con producto', 'Sin producto suficiente', 'Fuente']].concat(I.p.filter(r => cs.has(r[0])).map(r => { const v = L.filter(a => a.cad === r[0]).map(a => a.it.find(x => invFam(x.e) === invFam(r[1][0]))).filter(Boolean); return [bonito(r[0]), r[1].join(' '), r[2], r[3] == null ? '' : r[3], r[4], r[5], r[6], v.filter(x => x.est === 'ok').length, v.filter(x => x.est !== 'ok').length, r[7] || '']; }))
+        .concat(I.m.filter(r => cs.has(r[0])).map(r => [bonito(r[0]), '', 'DÍA DE DESCUENTO: ' + r[3], '', r[1], r[1], r[2], '', '', r[4] || ''])) }); }
   await invXlsx(hojas, 'INVENTARIO ' + (invPer ? bonito(D.users[invPer].nombre) + ' ' : 'EQUIPO ') + invFecha(Object.values(invFuentesTxt()).sort().pop()) + '.xlsx');
   toast('✔ Excel descargado: resumen por cadena, lo que más falta, presencia por marca y ' + (det.length - 1) + ' filas de detalle', 4500);
 }
