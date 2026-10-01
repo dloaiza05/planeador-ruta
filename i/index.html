@@ -250,7 +250,10 @@ body.modo-desc main,body.modo-desc #stats,body.modo-desc #undo,body.modo-desc #s
 #invSec .ivTb{width:100%;border-collapse:collapse;font-size:12.5px}#invSec .ivTb th{text-align:left;font-size:11.5px;color:var(--soft);border-bottom:1px solid var(--line);padding:5px 6px;white-space:nowrap}#invSec .ivTb td{border-bottom:1px solid var(--line2);padding:5px 6px;vertical-align:top}
 #invSec .ivTb .ok,#invSec .ivTb b.ok{color:var(--ok)}#invSec .ivTb .r,#invSec .ivTb b.r{color:var(--bad)}#invSec .ivTb small{color:var(--muted)}
 #invSec .ivPie{font-size:12px;margin-top:14px}
-.mesAl{border-radius:12px;padding:9px 12px;margin:0 0 12px;font-size:13px}.mesAl.mal{background:var(--bad-s);border:1px solid #f5b5b5;color:#8a1c1c}.mesAl.bien{background:var(--ok-s);border:1px solid #9fd5b0;color:#14532d}
+.mesAv{position:static;border-radius:12px;padding:10px 14px;margin:0 0 12px;font-size:13px;line-height:1.45}.mesAv.falta{background:var(--bad-s);border:1px solid #f5b5b5;color:#8a1c1c}.mesAv.listo{background:var(--ok-s);border:1px solid #9fd5b0;color:#14532d}
+.mesAv .mesCh{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}.mesAv .mesCh span{background:#fff;border:1px solid #f5b5b5;border-radius:999px;padding:3px 10px;font-size:12px;color:#7f1d1d}.mesAv .mesCh b{font-weight:700}
+.mesBar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin:0 0 12px}.mesBar .mesBarT{font-weight:700;font-size:13.5px}.mesBar .mu{font-size:12px}
+select.mesSel{padding:6px 10px;border:1px solid #c9ced8;border-radius:9px;font-size:13.5px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink,#111);max-width:330px;cursor:pointer}#navT select.mesSel{font-size:14px;margin-right:4px}
 #diaIn .mdPie{font-size:12.5px;margin-top:6px}
 #envSec .enPasos{display:flex;flex-direction:column;gap:8px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:12px 0 6px}
 #envSec .enPasos>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13.5px}#envSec .enPasos>div>b{flex:none;width:26px;height:26px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:13px}
@@ -1296,8 +1299,10 @@ async function mesRegistrar() {                         // guarda el mes que est
 function mesProgreso(x) {                              // personas · visitas · programadas de un mes guardado
   const d = x.emb || !x.D ? EMB : x.D, out = { personas: 0, vis: 0, prog: 0, faltan: [] };
   for (const [u, us] of Object.entries(d.users || {})) {
-    let Pu = {}; try { Pu = JSON.parse(localStorage.getItem('planeador-' + d.anio + '-' + d.mes + '-' + u) || 'null') || {}; } catch (e) { }
-    if (!Object.keys(Pu).length) us.filas.forEach(r => { if (r[8]) Pu[r[0]] = 1; });
+    let Pu = {};
+    if (d.anio === D.anio && d.mes === D.mes) Pu = u === U ? P : cargar(u);                 // el mes abierto: igual que la tabla de Descargas
+    else { try { Pu = JSON.parse(localStorage.getItem('planeador-' + d.anio + '-' + d.mes + '-' + u) || 'null') || {}; } catch (e) { }
+      if (!Object.keys(Pu).length) us.filas.forEach(r => { if (r[8]) Pu[r[0]] = 1; }); }
     const prog = us.filas.filter(r => Pu[r[0]]).length;
     out.personas++; out.vis += us.filas.length; out.prog += prog; if (prog < us.filas.length) out.faltan.push([u, us.nombre, us.filas.length - prog]);
   }
@@ -1314,9 +1319,71 @@ async function mesAbrir(k) {
   } catch (e) { avisar('No pude abrir ese mes en este navegador: ' + e.message); return; }
   location.reload();
 }
+let MES_L = [];
+function mesOpciones() {
+  const cur = mesClave(D.anio, D.mes), hay = new Set(MES_L.map(x => x.k)), out = [];
+  const b0 = Math.min(EMB.anio * 12 + EMB.mes - 1, D.anio * 12 + D.mes - 1);
+  for (let i = 0; i < 13; i++) { const t = b0 + i; hay.add(mesClave(Math.floor(t / 12), t % 12 + 1)); }
+  hay.add(cur);
+  for (const k of [...hay].sort()) { const x = MES_L.find(y => y.k === k), [a, m] = k.split('-').map(Number);
+    const est = k === mesClave(EMB.anio, EMB.mes) && (!x || x.emb) ? '✅ enviado a David' : x || k === cur ? '📝 armado' : '➕ armar desde el panel';
+    out.push({ k, t: `🗓 ${bonito(MESES_N[m - 1])} ${a} · ${est}`, cur: k === cur, hay: !!x || k === cur }); }
+  return out;
+}
+const mesSelHTML = () => `<select class="mesSel" aria-label="Mes" title="Cambiar de mes: cada mes guarda su panel y su planificador">${mesOpciones().map(o => `<option value="${o.k}"${o.cur ? ' selected' : ''}>${esc(o.t)}</option>`).join('')}</select>`;
+document.addEventListener('change', e => { const s_ = e.target.closest && e.target.closest('select.mesSel'); if (!s_) return; const v = s_.value, cur = mesClave(D.anio, D.mes); s_.value = cur; if (v !== cur) mesElegir(v); });
+async function mesElegir(k) {
+  const x = await mesGet(k); if (x) { mesAbrir(k); return; }
+  const [a, m] = k.split('-').map(Number), nom = bonito(MESES_N[m - 1]) + ' ' + a, dias = new Date(a, m, 0).getDate();
+  const fest = festivosCO(a).filter(f => f[0] === m), hab = [...Array(dias).keys()].map(i => i + 1).filter(d => new Date(a, m - 1, d).getDay() !== 0 && !fest.some(f => f[1] === d));
+  const op = `<option value="0">No hay</option>` + hab.map(d => `<option value="${d}">${DIAS_L[new Date(a, m - 1, d).getDay()]} ${d}</option>`).join('');
+  window.__mR = 0; window.__mP = 0;
+  const ok = await dialogo(`<p><b>🗓 Armar ${esc(nom)} desde tu panel</b></p><p>Quedan las mismas personas, puntos, frecuencias y tiempos que tienes ahora (${esc(bonito(D.mesNombre))} ${D.anio}), con el calendario de ${esc(nom)} en blanco para acomodarlo. ${D.mesNombre === 'octubre' && D.anio === EMB.anio ? 'Octubre no se toca.' : ''}</p>
+    <p class="mu">Festivos: ${fest.length ? fest.map(f => f[1] + ' (' + esc(f[2]) + ')').join(', ') : 'ninguno'}.</p>
+    <p style="display:flex;gap:10px;flex-wrap:wrap"><label>Día de reunión <select onchange="window.__mR=+this.value">${op}</select></label><label>Jueves de Performance <select onchange="window.__mP=+this.value">${op}</select></label></p>`,
+    [{ t: 'Cancelar', valor: false }, { t: '✔ Armar ' + esc(nom), cls: 'b1', valor: true }]);
+  if (!ok) return;
+  try { toast('Armando ' + nom + '…', 8000); await mesCrear(a, m, window.__mR, window.__mP); } catch (e) { avisar('No pude armar ' + nom + ': ' + e.message); }
+}
+async function plantillaMes(b64, a, m, dias, DC) {         // el Excel del mes: fechas y letras de los días en la fila 6 y 7
+  const zip = await JSZip.loadAsync(b64, { base64: true }); let x = await zip.file('xl/worksheets/sheet1.xml').async('string');
+  const s0 = Date.UTC(a, m - 1, 1) / 864e5 + 25569, LET = ['D', 'L', 'M', 'MM', 'J', 'V', 'S'];
+  const NOM = DC.map((L, i) => i < dias ? LET[new Date(a, m - 1, i + 1).getDay()] + (i >= 7 ? i - 5 : '') : 'NO APLICA ' + (i + 1));   // mismo estilo del rutero (J, V… J2, V3…)
+  const poner = (ref, nuevo) => { const re = new RegExp(`<c r="${ref}"([^>]*?)(?:/>|>[^]*?</c>)`); const mm = x.match(re); if (!mm) return; const st = (mm[1].match(/ s="\d+"/) || [''])[0]; x = x.replace(re, nuevo(st)); };
+  DC.forEach((L, i) => {
+    if (i < dias) {
+      poner(L + '6', st => i === 0 ? `<c r="${L}6"${st}><v>${s0}</v></c>` : i === 1 ? `<c r="${L}6"${st}><f t="shared" ref="${L}6:${DC[Math.min(dias, DC.length) - 1]}6" si="1">${DC[0]}6+1</f><v>${s0 + 1}</v></c>` : `<c r="${L}6"${st}><f t="shared" si="1"/><v>${s0 + i}</v></c>`);
+      poner(L + '7', st => `<c r="${L}7"${st} t="inlineStr"><is><t xml:space="preserve">${NOM[i]}</t></is></c>`);
+    } else { poner(L + '6', st => `<c r="${L}6"${st}/>`); poner(L + '7', st => `<c r="${L}7"${st} t="inlineStr"><is><t xml:space="preserve">${NOM[i]}</t></is></c>`); }
+  });
+  zip.file('xl/worksheets/sheet1.xml', x);
+  const tf = zip.file('xl/tables/table1.xml');                  // la tabla de Excel se llama igual que el encabezado (si no, Excel no abre)
+  if (tf) { let t = await tf.async('string'); const ini = (t.match(/<table [^>]*ref="([A-Z]+)\d+:/) || [])[1];
+    if (ini) { const off = XI(DC[0]) - XI(ini); let k = -1; t = t.replace(/(<tableColumn [^>]*?name=")([^"]*)(")/g, (all, p1, nm, p3) => { k++; const i = k - off; return i >= 0 && i < DC.length ? p1 + NOM[i] + p3 : all; }); zip.file('xl/tables/table1.xml', t); } }
+  return zip.generateAsync({ type: 'base64', compression: 'DEFLATE' });
+}
+async function mesCrear(a, m, reu, perf) {                // mes nuevo = el panel de hoy con el calendario en blanco
+  if (typeof JSZip === 'undefined') throw new Error('necesitas internet (la primera vez)');
+  const base = JSON.parse(JSON.stringify(D)); delete base._cargado;
+  const dias = new Date(a, m, 0).getDate(), fest = festivosCO(a).filter(f => f[0] === m);
+  for (const us of Object.values(base.users)) us.filas = us.filas.map(r => { const y = r.slice(); y[8] = y[9] = y[10] = null; return y; });
+  const DC = base.dcols || [...Array(31).keys()].map(q => XL(22 + q));
+  Object.assign(base, { anio: a, mes: m, mesNombre: MESES_N[m - 1], dias, festivos: fest.map(f => f[1]), festivosNom: Object.fromEntries(fest.map(f => [f[1], f[2]])),
+    reunion: { dia: +reu || 0, fin: 620, llegada: 650 }, performance: { dia: +perf || 0, ini: 480, fin: 770 }, cerrado: 0, version: EMB.version,
+    fuente: 'Armado desde el panel (' + bonito(D.mesNombre) + ' ' + D.anio + ') · ' + new Date().toLocaleDateString('es-CO') });
+  base.plantilla = await plantillaMes(base.plantilla, a, m, dias, DC);
+  await mesRegistrar();
+  const k = mesClave(a, m); let panel = null; try { panel = localStorage.getItem('planeador-panel'); } catch (e) { }
+  await mesPut(k, { k, anio: a, mes: m, nombre: bonito(MESES_N[m - 1]) + ' ' + a, emb: false, fuente: base.fuente.split(' · ')[0], guardado: Date.now(), D: base, panel });
+  await mesAbrir(k);
+}
 async function pintarMeses() {
-  const s = document.getElementById('mesSel'); if (!s) return;
-  if (!ADMIN) { s.hidden = true; return; }
+  if (!ADMIN) return;
+  MES_L = await mesTodos();
+  document.querySelectorAll('select.mesSel').forEach(s_ => { const v = mesClave(D.anio, D.mes); s_.innerHTML = mesOpciones().map(o => `<option value="${o.k}"${o.cur ? ' selected' : ''}>${esc(o.t)}</option>`).join(''); s_.value = v; });
+}
+async function pintarMesesViejo() {
+  const s = null; if (!s) return;
   const L = await mesTodos(), cur = mesClave(D.anio, D.mes), hay = new Set(L.map(x => x.k)), op = [];
   const base = new Date(Math.min(EMB.anio * 12 + EMB.mes - 1, D.anio * 12 + D.mes - 1) / 12 | 0, Math.min(EMB.anio * 12 + EMB.mes - 1, D.anio * 12 + D.mes - 1) % 12, 1);
   for (let i = 0; i < 13; i++) { const f = new Date(base.getFullYear(), base.getMonth() + i, 1), k = mesClave(f.getFullYear(), f.getMonth() + 1); hay.add(k); }
@@ -1329,8 +1396,8 @@ async function pintarMeses() {
 }
 function mesAlarma() {                                  // quién falta por completar su plan en el mes abierto
   const x = mesProgreso({ emb: !D._cargado, D }), f = x.faltan.sort((a, b) => b[2] - a[2]);
-  return f.length ? `<div class="mesAl mal">⚠ <b>${pl(f.length, 'persona no tiene', 'personas no tienen')} su plan completo de ${esc(D.mesNombre)}:</b> ${f.map(([u, n, k]) => `${esc(bonito(n).split(' ').slice(0, 2).join(' '))} (${pl(k, 'visita sin programar', 'visitas sin programar')})`).join(' · ')}</div>`
-    : `<div class="mesAl bien">✓ <b>Las ${x.personas} personas tienen su plan completo de ${esc(D.mesNombre)}</b> (${x.prog} de ${x.vis} visitas). Ya puedes descargar el consolidado.</div>`;
+  return f.length ? `<div class="mesAv falta">⚠ <b>${pl(f.length, 'persona no tiene', 'personas no tienen')} su plan completo de ${esc(D.mesNombre)} ${D.anio}</b> (${x.prog} de ${x.vis} visitas programadas)<div class="mesCh">${f.map(([u, n, k]) => `<span><b>${esc(bonito(n).split(' ').slice(0, 2).join(' '))}</b> · ${pl(k, 'visita sin programar', 'visitas sin programar')}</span>`).join('')}</div></div>`
+    : `<div class="mesAv listo">✓ <b>Las ${x.personas} personas tienen su plan completo de ${esc(D.mesNombre)}</b> (${x.prog} de ${x.vis} visitas). Ya puedes descargar el consolidado.</div>`;
 }
 async function mesTabla() {                             // registro de todos los meses guardados (en Descargas)
   const L = (await mesTodos()).sort((a, b) => b.k.localeCompare(a.k)), cur = mesClave(D.anio, D.mes);
