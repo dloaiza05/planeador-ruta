@@ -232,7 +232,7 @@ body.modo-desc main,body.modo-desc #stats,body.modo-desc #undo,body.modo-desc #s
 #invSec .ivHay{background:var(--ok-s);border:1px solid #b7e4cf;border-radius:12px;padding:9px 11px;margin:6px 0}#invSec .ivHay>b{color:#065f46;font-size:14px}
 #invSec .ivMs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}#invSec .ivMs span{background:#fff;border-radius:20px;padding:2px 9px;font-size:12px;color:#374151}
 #invSec .ivKpi .ok b{color:var(--ok)}
-#invSec .ivDn{margin:3px 0 0;font-size:12px;color:#7c2d12;background:#fff7ed;border:1px solid #fed7aa;border-radius:7px;padding:2px 7px;display:inline-block}#invSec .ivDn.hoy{background:#fef3c7;border-color:#f59e0b;color:#78350f}#invSec .ivDn.al{background:#fee2e2;border-color:#fca5a5;color:#991b1b;display:block}
+#invSec .ivDn{margin:3px 0 0;font-size:12px;color:#7c2d12;background:#fff7ed;border:1px solid #fed7aa;border-radius:7px;padding:2px 7px;display:inline-block}#invSec .ivDn.hoy{background:#fef3c7;border-color:#f59e0b;color:#78350f}#invSec .ivDs{display:block;font-size:11px;color:#9a3412;opacity:.85;margin-top:1px}#invSec .ivDr{margin:8px 0 10px;padding:9px 12px;border-radius:10px;background:#fff7ed;border:1px solid #fdba74;font-size:12.5px;color:#7c2d12;line-height:1.5}#invSec .ivDr h4{margin:0 0 4px;font-size:14px}#invSec .ivDr table{width:100%;border-collapse:collapse;margin-top:4px}#invSec .ivDr td,#invSec .ivDr th{padding:3px 6px;border-top:1px solid #fed7aa;text-align:left;vertical-align:top}#invSec .ivDr .no{color:#b91c1c}#invSec .ivDn.al{background:#fee2e2;border-color:#fca5a5;color:#991b1b;display:block}
 #invSec .ivDm{margin:8px 0;padding:8px 11px;border-radius:10px;background:#fff7ed;border:1px solid #fed7aa;font-size:12.5px;color:#7c2d12;line-height:1.5}#invSec .ivDm .hoy{background:#fde68a;border-radius:5px;padding:0 4px;font-weight:700}#invSec .ivDm .r{color:#b91c1c}
 #invSec .ivWb{margin:3px 0 0;font-size:12px;color:#1e3a8a;background:#eef4ff;border:1px solid #c7d7fe;border-radius:7px;padding:2px 7px;display:inline-block;line-height:1.45}#invSec .ivWb s{color:#64748b}#invSec .ivWb em{font-style:normal;font-weight:700;color:#b91c1c}#invSec .ivWb a{color:#1d4ed8;font-weight:600}
 #invSec .ivWb.al{display:block;background:#fff7ed;border-color:#fdba74;color:#9a3412}#invSec .ivWb.inf{display:block;background:#f8fafc;border-color:#e2e8f0;color:#475569}
@@ -738,7 +738,8 @@ function invDinTxt(L) {                                  // agrupa por descuento
     rs.sort((x, y) => x[4] < y[4] ? -1 : 1); const r = rs[0], hoy = rs.some(x => x[4] <= h && (x[5] || x[4]) >= h), prox = rs.find(x => x[4] > h);
     const todo = rs.length === 1 && r[4].endsWith('-01') && +(r[5] || '').slice(8) >= 28;
     const fechas = todo ? 'todo el mes' : rs.map(x => invDiaTxt(x[4], x[5] || x[4])).join(', ').replace(/, ([^,]*)$/, ' y $1');
-    return { hoy, prox, pct: r[3], t: (r[3] != null ? r[3] + '% de descuento' : 'Actividad especial') + ' · ' + fechas + (r[6] ? ' · ' + r[6] : '') };
+    const src = [...new Set(rs.map(x => x[7]).filter(Boolean))].join(' · ');
+    return { hoy, prox, pct: r[3], src, t: (r[3] != null ? r[3] + '% de descuento' : 'Actividad especial') + ' · ' + fechas + (r[6] ? ' · ' + r[6] : '') };
   });
 }
 function invDinSubir() {                                 // ventana: subir el Excel de dinámicas, bajar la plantilla, quitar lo subido
@@ -995,6 +996,16 @@ function pintarInv() {
     h += `<div class="cvCar">Todavía no hay inventario de ${u ? 'tus' : 'los'} puntos.${ADMIN ? '<br>Descarga del CEN (Gestión de Inventarios → Consulta de Reporte de Inventarios) y súbelo con <b>📂 Subir inventario</b>, o déjalo en Descargas y se carga en la noche.' : ''}</div>`;
     cont.innerHTML = h; invEventos(); return;
   }
+  h += (() => {                                           // 🏷 resumen: qué dinámicas hay este mes, de qué cadena y de dónde salen
+    const I = invDin(), G = {};
+    for (const r of I.p) { const g = G[r[0]] = G[r[0]] || { n: 0, src: new Set(), min: r[4], max: r[5] || r[4] }; g.n++; if (r[7]) g.src.add(r[7]); if (r[4] < g.min) g.min = r[4]; if ((r[5] || r[4]) > g.max) g.max = r[5] || r[4]; }
+    const dias = {}; for (const r of I.m) (dias[r[0]] = dias[r[0]] || []).push(r);
+    const mis = [...new Set(conDato.map(x => invCadena(x)))], todas = [...new Set([...Object.keys(G), ...Object.keys(dias), ...mis])].sort();
+    if (!todas.length) return '';
+    return `<div class="ivDr"><h4>🏷 Dinámicas de ${esc(D.mesNombre)} y de dónde salen <small>(solo información oficial de los KAM de Haleon)</small></h4><table>
+      <tr><th>Cadena</th><th>Qué hay</th><th>Fuente oficial</th></tr>
+      ${todas.map(c => { const g = G[c], md = dias[c] || []; return `<tr><td><b>${esc(bonito(c))}</b></td><td>${g ? pl(g.n, 'producto con descuento', 'productos con descuento') + ' · ' + esc(invDiaTxt(g.min < D.anio + '-' + String(D.mes).padStart(2, '0') + '-01' ? D.anio + '-' + String(D.mes).padStart(2, '0') + '-01' : g.min, g.max)) : ''}${md.length ? (g ? '<br>' : '') + '📅 ' + md.map(r => esc(invDiaTxt(r[1], r[1]) + ' ' + r[3])).join(' · ') : ''}${!g && !md.length ? '<span class="no">Sin dinámica oficial este mes</span>' : ''}</td><td><small>${esc([...(g ? g.src : []), ...md.map(r => r[4])].filter((x, i, a) => x && a.indexOf(x) === i).join(' · ') || (g || md.length ? '' : 'El KAM no ha enviado nada · se muestra solo el precio de la página web'))}</small></td></tr>`; }).join('')}
+    </table></div>`; })();
   h += `<div class="ivLey"><b>Cómo leerlo</b>
     <span><i>🔴 Agotado</i> la cadena lo reporta en cero</span>
     <span><i>⚪ No aparece</i> Éxito: no está codificado en esa tienda → pedir codificar · Olímpica: en 0 (no reporta los ceros) → revisar en la visita</span>
@@ -1090,7 +1101,7 @@ function invDetalle(cod) {
     return con.length ? 'Por CD: ' + con.map(k => k.replace(/^(Centro de Distribución\s+)?(CEDI|CD)\s+/i, 'CD ').replace(/\s+/g, ' ') + ': ' + invNum(C.b[k][v.e])).join(' · ') : 'En ningún CD de la cadena hay'; };
   const filaH = v => { const ce = v.cedi ? v.cedi.reduce((s, x) => s + x[1], 0) : null, fr = frase(v, ce), det = cediPorNombre(v);
     return `<div class="ivF"><div class="ivN"><b>${esc(v.d)}</b><span>${esc(v.m || v.c)} · EAN ${esc(v.e)}${v.otro ? ' (código anterior; el actual es ' + esc(v.otro) + ')' : ''}${v.cubre ? ' · en cero con este código, pero la tienda tiene ' + invNum(v.cubre) + ' con el otro código del mismo producto' : ''}${v.qa != null && v.qa !== v.q ? ' · el inventario anterior tenía ' + invNum(v.qa) : ''}${rotT(v)}</span>
-      ${fr ? `<p class="ivFr">${esc(fr)}</p>` : ''}${det ? `<p class="ivCd">🏬 ${esc(det)}</p>` : ''}${v.din && v.din.length ? invDinTxt(v.din).map(x => `<p class="ivDn${x.hoy ? ' hoy' : ''}">🏷 ${esc(x.t)}${x.hoy ? ' · <b>¡HOY!</b>' : ''}</p>`).join('') + (v.est !== 'ok' ? '<p class="ivDn al">⚡ Tiene dinámica este mes y no hay producto suficiente: es prioridad.</p>' : '') : ''}${invWebHtml(v, cod, a.cad)}<i>${v.conv ? '<em class="c">⚠ marca con convenio</em>' : ''}${v.nuevo ? '<em class="r">se agotó desde el último inventario</em>' : ''}</i></div>
+      ${fr ? `<p class="ivFr">${esc(fr)}</p>` : ''}${det ? `<p class="ivCd">🏬 ${esc(det)}</p>` : ''}${v.din && v.din.length ? invDinTxt(v.din).map(x => `<p class="ivDn${x.hoy ? ' hoy' : ''}">🏷 <b>${esc(x.t)}</b>${x.hoy ? ' · <b>¡HOY!</b>' : ''}${x.src ? `<small class="ivDs">📧 Fuente: ${esc(x.src)}</small>` : ''}</p>`).join('') + (v.est !== 'ok' ? '<p class="ivDn al">⚡ Tiene dinámica este mes y no hay producto suficiente: es prioridad.</p>' : '') : ''}${invWebHtml(v, cod, a.cad)}<i>${v.conv ? '<em class="c">⚠ marca con convenio</em>' : ''}${v.nuevo ? '<em class="r">se agotó desde el último inventario</em>' : ''}</i></div>
       <div class="ivQs">${cel('En ' + tiendaN, v.est === 'agot' ? '0' : v.est === 'noap' ? invNoap(a.cad).celda : invNum(v.q), 't-' + v.est)}${cel('En ' + cediN, ce == null ? '—' : invNum(ce))}
       ${v.acc ? `<span class="ivAcc ${v.acc[1]}">${v.acc[0]}</span>` : ''}</div></div>`; };
   const grupo = (k, L) => { if (!L.length) return ''; const e = k === 'noap' ? Object.assign({}, INV_EST.noap, invNoap(a.cad)) : INV_EST[k];
