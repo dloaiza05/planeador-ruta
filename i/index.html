@@ -1045,7 +1045,7 @@ function pintarInv() {
   }
   h += (() => {                                           // 🏷 resumen: qué dinámicas hay este mes, de qué cadena y de dónde salen
     const I = invDin(), G = {};
-    for (const r of I.p) { const g = G[r[0]] = G[r[0]] || { n: 0, src: new Set(), min: r[4], max: r[5] || r[4] }; g.n++; if (r[7]) g.src.add(r[7]); if (r[4] < g.min) g.min = r[4]; if ((r[5] || r[4]) > g.max) g.max = r[5] || r[4]; }
+    for (const r of I.p) { const g = G[r[0]] = G[r[0]] || { n: 0, ks: new Set(), src: new Set(), min: r[4], max: r[5] || r[4] }; g.ks.add(invFam(r[1][0] || r[2])); g.n = g.ks.size; if (r[7]) g.src.add(r[7]); if (r[4] < g.min) g.min = r[4]; if ((r[5] || r[4]) > g.max) g.max = r[5] || r[4]; }
     const dias = {}; for (const r of I.m) (dias[r[0]] = dias[r[0]] || []).push(r);
     const mis = [...new Set(conDato.map(x => invCadena(x)))], todas = [...new Set([...Object.keys(G), ...Object.keys(dias), ...mis, ...INV_CADENAS])].sort();
     if (!todas.length) return '';
