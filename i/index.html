@@ -725,7 +725,7 @@ function invDin() {
     for (const r of Array.isArray(src.m) ? src.m : []) { if (!Array.isArray(r) || !/^\d{4}-\d\d-\d\d$/.test(r[1])) continue; const k = [r[0], r[1], r[3]].join('|'); if (!km.has(k)) { km.add(k); m.push(r); } }
   }
   const mes = D.anio + '-' + String(D.mes).padStart(2, '0'), ini = mes + '-01', fin = mes + '-31';
-  const out = { p: p.filter(r => r[4] <= fin && (r[5] || r[4]) >= ini), m: m.filter(r => r[1].startsWith(mes)).sort((a, b) => a[1] < b[1] ? -1 : 1), local: !!B, fuentes: [...(A.fuentes || []), ...((B && B.fuentes) || [])], ix: {} };
+  const out = { cargado: (A.cargado || ''), p: p.filter(r => r[4] <= fin && (r[5] || r[4]) >= ini), m: m.filter(r => r[1].startsWith(mes)).sort((a, b) => a[1] < b[1] ? -1 : 1), local: !!B, fuentes: [...(A.fuentes || []), ...((B && B.fuentes) || [])], ix: {} };
   for (const r of out.p) for (const e of new Set(r[1].map(invFam))) (out.ix[r[0] + '|' + e] = out.ix[r[0] + '|' + e] || []).push(r);
   return dinMemo = out;
 }
@@ -976,6 +976,14 @@ function invAnalisis(cod) {
 }
 const INV_ORD = { agot: 0, noap: 1, neg: 2, bajo: 3, ok: 4 };
 const invPct = x => Math.round(x * 100) + '%';
+const invFH = t => { const m = String(t || '').match(/(\d{4})-(\d\d)-(\d\d)[ T](\d\d):(\d\d)/); if (!m) return t || ''; const h = +m[4], ap = h < 12 ? 'a. m.' : 'p. m.';   // «2026-10-02 19:06» → «2 oct 7:06 p. m.»
+  return +m[3] + ' ' + ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][+m[2] - 1] + ' ' + ((h % 12) || 12) + ':' + m[5] + ' ' + ap; };
+function invGenCEN(cad, fecha) {                         // hora en que el CEN generó el reporte (viene en el nombre del archivo, en hora UTC)
+  const f = invDatos().fuentes.filter(x => x.cadena === cad && x.nuestros && (!fecha || x.fecha === fecha)).sort((a, b) => a.archivo < b.archivo ? 1 : -1)[0];
+  const m = f && String(f.archivo).match(/_(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)\d{2,}_INVRPT/i); if (!m) return '';
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) - 5 * 3600e3);   // Colombia = UTC−5
+  return invFH(d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0') + ' ' + String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'));
+}
 function invFuentesTxt() {
   const I = invDatos(), m = {};
   for (const f of I.fuentes) if (f.nuestros && (!m[f.cadena] || f.fecha > m[f.cadena])) m[f.cadena] = f.fecha;
@@ -1025,9 +1033,9 @@ function pintarInv() {
   const dinN = c => invDin().p.filter(r => r[0] === invCadena(c)).length;
   L.sort((a, b) => invDia && u ? hv(a.cod) - hv(b.cod) : b.prio - a.prio || pdv(a.cod)[0].localeCompare(pdv(b.cod)[0]));   // una persona y un día: en el orden de la ruta
   const T = k => L.reduce((s, a) => s + a[k], 0), ref = T('ref'), conRef = T('conRef');
-  const fu = Object.entries(F).map(([c, f]) => `<span class="ivCh">${esc(bonito(c))} · ${invFecha(f)}</span>`).join('');
+  const fu = Object.entries(F).map(([c, f]) => { const g = invGenCEN(c, f); return `<span class="ivCh" title="Fecha del inventario y hora en que el CEN generó el reporte">${esc(bonito(c))} · inventario del ${invFecha(f)}${g ? ' · CEN ' + esc(g) : ''}</span>`; }).join('');
   const faltan = cads.filter(c => !F[c]);
-  let h = `<div class="cvT"><h2>📦 Inventarios</h2>${fu}${I.generado ? `<span>actualizado ${esc(I.generado)}</span>` : ''}</div>`;
+  let h = `<div class="cvT"><h2>📦 Inventarios</h2>${fu}${I.generado ? `<span>📥 cargado a la página: ${esc(invFH(I.generado))}</span>` : ''}${(invDin().cargado) ? `<span>🏷 dinámicas cargadas: ${esc(invFH(invDin().cargado))}</span>` : ''}</div>`;
   h += `<div class="cvTool ivTool">${ADMIN ? `<select id="ivU" aria-label="Persona"><option value="">Todo el equipo</option>${Object.keys(D.users).sort((a, b) => String(D.users[a].nombre).localeCompare(String(D.users[b].nombre))).map(x => `<option value="${esc(x)}"${x === invPer ? ' selected' : ''}>${esc(bonito(D.users[x].nombre))} · ${esc(x)}</option>`).join('')}</select>` : ''}
     <select id="ivD" aria-label="Día de visita"><option value="">📅 Todos los puntos</option>${habiles.map(k => `<option value="${k}"${k === +invDia ? ' selected' : ''}>📅 Visitas del ${diaTxt(k)}</option>`).join('')}</select>
     <select id="ivC" aria-label="Cadena"><option value="">Todas las cadenas</option>${cads.filter(c => todos.some(x => invCadena(x) === c)).map(c => `<option value="${esc(c)}"${c === invCad ? ' selected' : ''}>${esc(bonito(c))}</option>`).join('')}</select>
@@ -1047,9 +1055,9 @@ function pintarInv() {
     const I = invDin(), G = {};
     for (const r of I.p) { const g = G[r[0]] = G[r[0]] || { n: 0, ks: new Set(), src: new Set(), min: r[4], max: r[5] || r[4] }; g.ks.add(invFam(r[1][0] || r[2])); g.n = g.ks.size; if (r[7]) g.src.add(r[7]); if (r[4] < g.min) g.min = r[4]; if ((r[5] || r[4]) > g.max) g.max = r[5] || r[4]; }
     const dias = {}; for (const r of I.m) (dias[r[0]] = dias[r[0]] || []).push(r);
-    const mis = [...new Set(conDato.map(x => invCadena(x)))], todas = [...new Set([...Object.keys(G), ...Object.keys(dias), ...mis, ...INV_CADENAS])].sort();
+    const mis = [...new Set(conDato.map(x => invCadena(x)))], todas = [...new Set([...Object.keys(G), ...Object.keys(dias), ...mis, ...INV_CADENAS])].filter(c => INV_CADENAS.includes(c) || mis.includes(c)).sort();   // solo las cadenas de su panel
     if (!todas.length) return '';
-    return `<div class="ivDr">${invOjo('top', '👁 Ver todas las dinámicas de tus cadenas', '🙈 Ocultar dinámicas')}<h4>🏷 Dinámicas de ${esc(D.mesNombre)} y de dónde salen <small>(solo información oficial de los KAM de Haleon · ${todas.length} cadenas)</small></h4><table>
+    return `<div class="ivDr">${invOjo('top', '👁 Ver todas las dinámicas de tus cadenas', '🙈 Ocultar dinámicas')}<h4>🏷 Dinámicas de ${esc(D.mesNombre)} y de dónde salen <small>(solo información oficial de los KAM de Haleon · ${todas.length} cadenas${I.cargado ? ' · actualizado ' + esc(invFH(I.cargado)) : ''})</small></h4><table>
       <tr><th>Cadena</th><th>Qué hay</th><th>Fuente oficial</th></tr>
       ${todas.map(c => { const g = G[c], md = dias[c] || []; return `<tr><td><b>${esc(bonito(c))}</b></td><td>${g ? pl(g.n, 'producto con descuento', 'productos con descuento') + ' · ' + esc(invDiaTxt(g.min < D.anio + '-' + String(D.mes).padStart(2, '0') + '-01' ? D.anio + '-' + String(D.mes).padStart(2, '0') + '-01' : g.min, g.max)) : ''}${md.length ? (g ? '<br>' : '') + '📅 ' + md.map(r => esc(invDiaTxt(r[1], r[1]) + ' ' + r[3])).join(' · ') : ''}${!g && !md.length ? '<span class="no">Sin dinámica oficial este mes</span>' : ''}${g ? `<div class="ivDx2">${invDinResumen(I.p.filter(r => r[0] === c).map(r => [r, String(r[2]).split(' ')[0], String(r[2]).split(' · ')[0], false]), true)}</div>` : ''}</td><td><small>${esc([...(g ? g.src : []), ...md.map(r => r[4])].filter((x, i, a) => x && a.indexOf(x) === i).join(' · ') || (g || md.length ? '' : 'El KAM no ha enviado nada · se muestra solo el precio de la página web'))}</small></td></tr>`; }).join('')}
     </table></div>`; })();
@@ -1170,7 +1178,7 @@ function invDetalle(cod) {
   const ok = it.filter(v => v.est === 'ok').sort((x, y) => String(x.m).localeCompare(String(y.m)) || y.q - x.q);
   el.innerHTML = `<div class="ivDh"><div><h3>${esc(pdv(cod)[0])}</h3><span>${esc(bonito(a.cad))} · código ${esc(cod)}${a.g ? ' · GLN ' + esc(a.g) : ''}${un && D.users[un] ? ' · ' + esc(bonito(D.users[un].nombre)) : ''} · inventario del ${invFecha(a.f)}${a.fa ? ' (antes: ' + invFecha(a.fa) + ')' : ''}</span></div>
       <button class="b2" id="ivDs">📋 Copiar</button></div>
-    <div class="ivFe">📅 Inventario del <b>${invFecha(a.f)}</b> (${esc(bonito(a.cad))}, reporte del CEN)${a.fa ? ' · el anterior es del ' + invFecha(a.fa) : ''}<br>🏬 Lo surte: <b>${esc((() => { const x = invCediDe(a.cad, cod); if (x) return x; const C = (invDatos().cedis || {})[a.cad], n = C ? Object.keys(C.b) : []; return !n.length ? 'sin dato de CEDI' : 'por confirmar — se suman las bodegas de ' + cadN + ' (' + n.map(x => x.replace(/^(Centro de Distribución |CEDI |CD )/i, '')).join(' · ') + ')'; })())}</b></div>
+    <div class="ivFe">📅 Inventario del <b>${invFecha(a.f)}</b> (${esc(bonito(a.cad))}, reporte del CEN${invGenCEN(a.cad, a.f) ? ' generado el ' + esc(invGenCEN(a.cad, a.f)) : ''}${invDatos().generado ? ' · cargado a la página el ' + esc(invFH(invDatos().generado)) : ''})${a.fa ? ' · el anterior es del ' + invFecha(a.fa) : ''}<br>🏬 Lo surte: <b>${esc((() => { const x = invCediDe(a.cad, cod); if (x) return x; const C = (invDatos().cedis || {})[a.cad], n = C ? Object.keys(C.b) : []; return !n.length ? 'sin dato de CEDI' : 'por confirmar — se suman las bodegas de ' + cadN + ' (' + n.map(x => x.replace(/^(Centro de Distribución |CEDI |CD )/i, '')).join(' · ') + ')'; })())}</b></div>
     ${(() => { const md = invDin().m.filter(r => r[0] === a.cad), h = hoyISO(); if (!md.length && !a.din) return '';
       return `<div class="ivDm">${invOjo('pt')}🏷 <b>Dinámicas de ${esc(cadN)} este mes:</b> ${a.din ? pl(a.din, 'producto con descuento o actividad', 'productos con descuento o actividad') + ' en esta tienda' + (a.dinF ? ` · <b class="r">⚡ ${a.dinF} sin producto suficiente</b>` : ' · todos con producto ✅') : 'ningún producto de esta tienda'}<div class="ivDx">${invDinResumen(a.it.filter(v => v.din && v.din.length).flatMap(v => v.din.map(r => [r, v.m || v.c || String(r[2]).split(' ')[0], v.d, v.est !== 'ok'])))}</div>${md.length ? '<br>📅 Días de descuento: ' + md.map(r => `<span${r[1] === h ? ' class="hoy"' : ''}>${esc(invDiaTxt(r[1], r[1]))} ${esc(r[3])}${r[2] ? ' (' + esc(r[2]) + ')' : ''}${r[1] === h ? ' · ¡HOY!' : ''}</span>`).join(' · ') : ''}</div>`; })()}
     <div class="ivHay"><b>✅ En esta tienda hay ${a.unid.toLocaleString('es-CO')} unidades de ${a.skus} productos Haleon</b><div class="ivMs">${(() => { const m = {}; for (const v of a.it) if (v.q > 0) { const k = v.m || v.c; m[k] = m[k] || [0, 0]; m[k][0] += v.q; m[k][1]++; } return Object.entries(m).sort((x, y) => y[1][0] - x[1][0]).map(([k, [u, n]]) => `<span><b>${esc(k)}</b> ${Math.round(u).toLocaleString('es-CO')} u · ${n} ref.</span>`).join(''); })()}</div></div>
