@@ -851,7 +851,7 @@ function invDinSubir() {                                 // ventana: subir el Ex
   anclar(null); $('#modal').style.display = 'flex';
   $('#mbox').innerHTML = `<h3>🏷 Dinámicas y descuentos</h3>
     <p>Este mes hay <b>${I.p.length}</b> descuentos de producto y <b>${I.m.length}</b> días de descuento en las cadenas (${esc(I.fuentes.join(', ') || 'sin archivo')}). Se ven debajo del inventario de cada producto.</p>
-    <p class="mu">Para actualizar: toca <b>⬇ Plantilla</b> (sale con lo que ya hay), agrega o cambia filas (cadena, EAN, %, desde, hasta, dónde) y súbela con <b>📂 Subir</b>. Para que el equipo y el enlace de 6 h lo vean, guarda el archivo en Descargas con nombre <b>DINAMICAS….xlsx</b>: se publica con la actualización del inventario.</p>
+    <p class="mu">Para actualizar: toca <b>⬇ Plantilla</b> (sale con lo que ya hay), agrega o cambia filas (cadena, EAN, %, desde, hasta, dónde) y súbela con <b>📂 Subir</b>. Para que el equipo y el enlace de 10 h lo vean, guarda el archivo en Descargas con nombre <b>DINAMICAS….xlsx</b>: se publica con la actualización del inventario.</p>
     <div class="enAcc"><button class="b1" id="dnS">📂 Subir Excel de dinámicas<small>uno o varios</small></button><button class="b2" id="dnP">⬇ Plantilla<small>con las dinámicas del mes</small></button>${B ? '<button class="b2" id="dnL">🗑 Quitar lo subido<small>vuelve a lo publicado</small></button>' : ''}</div>
     <div class="acts"><span></span><button class="b2" id="dnC">Cerrar</button></div>`;
   $('#dnC').onclick = cerrar;
@@ -886,7 +886,7 @@ async function invDinLeer(files) {
   }
   if (!B.p.length && !B.m.length) { avisar(msg.join('\n')); return; }
   try { localStorage.setItem(DIN_K, JSON.stringify(B)); } catch (e) { avisar('No pude guardar en este equipo (espacio lleno).'); return; }
-  dinMemo = null; cerrar(); pintarInv(); avisar(msg.join('\n') + '\n\nQueda guardado en este equipo. Para el equipo y el enlace de 6 h: guarda el archivo en Descargas como DINAMICAS….xlsx y se publica con el inventario.');
+  dinMemo = null; cerrar(); pintarInv(); avisar(msg.join('\n') + '\n\nQueda guardado en este equipo. Para el equipo y el enlace de 10 h: guarda el archivo en Descargas como DINAMICAS….xlsx y se publica con el inventario.');
 }
 // 🛒 PRECIOS EN LA WEB de cada cadena (precios_web.py, 2 veces al día): precio de la tienda en línea, descuento, promoción, PLU
 const WEB_T = { EXITO: 'Éxito', CARULLA: 'Carulla', OLIMPICA: 'Olímpica', CAFAM: 'Cafam', COLSUBSIDIO: 'Colsubsidio', JUMBO: 'Jumbo' };
@@ -1103,7 +1103,7 @@ function pintarInv() {
     <input id="ivQ" type="search" placeholder="Buscar punto o producto…" value="${esc(invQ)}">
     <span class="sep"></span>
     ${ADMIN && !VISOR ? '<button class="b2" id="ivS" title="Subir los Excel INVRPT que descargas del CEN: puedes escoger varios a la vez (Éxito y Olímpica)">📂 Subir inventario</button>' : ''}${ADMIN && !VISOR ? '<button class="b2" id="ivDS" title="Subir el Excel de dinámicas comerciales y descuentos de las cadenas">🏷 Dinámicas</button>' : ''}${ADMIN && !VISOR && invLocal() ? '<button class="b2" id="ivL" title="Borra de este computador lo que subiste y vuelve al inventario publicado">🗑 Limpiar lo subido</button>' : ''}
-    ${ADMIN && !VISOR && COORD && COORD.invVista ? '<button class="b1" id="ivE" title="Enlace que solo muestra el inventario y se vence en 6 horas">🔗 Enlace 6 h</button>' : ''}${VISOR ? '' : '<button class="b2" id="ivSh">📤 Compartir</button>'}${ADMIN && !VISOR ? '<button class="b2" id="ivX">⬇ Excel</button>' : ''}</div>`;
+    ${ADMIN && !VISOR && COORD && COORD.invVista ? '<button class="b1" id="ivE" title="Enlace que solo muestra el inventario y se vence en 10 horas">🔗 Enlace 10 h</button>' : ''}${VISOR ? '' : '<button class="b2" id="ivSh">📤 Compartir</button>'}${ADMIN && !VISOR ? '<button class="b2" id="ivX">⬇ Excel</button>' : ''}</div>`;
   if (!todos.length && invDia) {
     h += `<div class="cvCar">${Object.keys(vis).length ? 'Los puntos que se visitan (' + esc(diaTxt(+invDia)) + ')' + ' no tienen archivo de inventario todavía' + (sinArchivo ? ' (' + pl(sinArchivo, 'visita', 'visitas') + ')' : '') + '.' : 'No hay visitas agendadas (' + esc(diaTxt(+invDia)) + ').'}<br><button class="b2" id="ivTodo">Ver todos los puntos</button></div>`;
     cont.innerHTML = h; invEventos(); return;
@@ -1453,7 +1453,7 @@ async function invSubir(files) {
   avisar(msg.join('\n') + '\n\nQueda guardado en este equipo. Para que el equipo lo vea en su celular, deja el archivo en Descargas: se publica en la actualización de la noche.');
 }
 // --- 🔗 enlace temporal de inventario (12 h): solo inventario, firmado por el coordinador, se vence solo ---
-const INV_HORAS = 6;
+const INV_HORAS = 10;
 const invB64u = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 32768) s += String.fromCharCode.apply(null, u8.subarray(i, i + 32768)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
 async function invArmarEnlace(u) {                      // enlace corto, solo letras y números: …/i/#<id><secreto><persona><vence>
   if (!COORD || !COORD.invVista) throw new Error('falta el inventario publicado');
