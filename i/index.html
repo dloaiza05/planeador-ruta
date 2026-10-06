@@ -1076,7 +1076,7 @@ function pintarInv() {
   const u = ADMIN ? invPer : U;
   const hoy = new Date(), dH = hoy.getFullYear() === D.anio && hoy.getMonth() + 1 === D.mes ? hoy.getDate() : 0;
   const habiles = []; for (let k = 1; k <= D.dias; k++) if (ventana(k)) habiles.push(k);
-  if (invDia === null) invDia = habiles.includes(dH) ? dH : '';                      // por defecto: los puntos que se visitan hoy
+  if (invDia === null) invDia = habiles.includes(dH) && (!u || cvRutaDia(dH).some(r => r.u === u && r.vis.length)) ? dH : '';   // por defecto: los puntos que se visitan hoy; si la persona no tiene visitas programadas hoy (p. ej. Periferia sin planeación), todos sus puntos
   const vis = {};                                                                    // código → [{hora, u}] de las visitas de ese día
   if (invDia) for (const r of cvRutaDia(+invDia)) if (!u || r.u === u) for (const v of r.vis) (vis[v.cod] = vis[v.cod] || []).push({ hora: v.hora, u: r.u });
   const todos = invPuntosDe(u).filter(c => INV_CADENAS.includes(invCadena(c)) && (!invDia || vis[c])), conDato = todos.filter(c => I.pts[c]);
@@ -1250,7 +1250,7 @@ function invDetalle(cod) {
 }
 function invEventos() {
   const on = (id, f) => { const b = $('#' + id); if (b) b.onclick = f; };
-  if ($('#ivU')) $('#ivU').onchange = () => { invPer = $('#ivU').value; invSel = ''; pintarInv(); };
+  if ($('#ivU')) $('#ivU').onchange = () => { invPer = $('#ivU').value; invSel = ''; invDia = null; pintarInv(); };   // al cambiar de persona se recalcula el día por defecto
   if ($('#ivC')) $('#ivC').onchange = () => { invCad = $('#ivC').value; invSel = ''; pintarInv(); };
   if ($('#ivD')) $('#ivD').onchange = () => { invDia = $('#ivD').value; invSel = ''; pintarInv(); };
   on('ivTodo', () => { invDia = ''; invSel = ''; pintarInv(); });
