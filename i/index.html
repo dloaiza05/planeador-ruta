@@ -1077,10 +1077,11 @@ function pintarInv() {
   const u = ADMIN ? invPer : U;
   const hoy = new Date(), dH = hoy.getFullYear() === D.anio && hoy.getMonth() + 1 === D.mes ? hoy.getDate() : 0;
   const habiles = []; for (let k = 1; k <= D.dias; k++) if (ventana(k)) habiles.push(k);
-  if (invDia === null) invDia = '';   // por defecto: TODOS los puntos (pedido de Diego 7-oct); el día se escoge en el filtro   // por defecto: los puntos que se visitan hoy; si la persona no tiene visitas programadas hoy (p. ej. Periferia sin planeación), todos sus puntos
+  if (invDia === null) invDia = habiles.includes(dH) && (!u || cvRutaDia(dH).some(r => r.u === u && r.vis.length)) ? dH : '';   // como antes: los puntos que se visitan hoy; sin visitas hoy (p. ej. Periferia sin planeación) → todos sus puntos   // por defecto: los puntos que se visitan hoy; si la persona no tiene visitas programadas hoy (p. ej. Periferia sin planeación), todos sus puntos
   const vis = {};                                                                    // código → [{hora, u}] de las visitas de ese día
   if (invDia) for (const r of cvRutaDia(+invDia)) if (!u || r.u === u) for (const v of r.vis) (vis[v.cod] = vis[v.cod] || []).push({ hora: v.hora, u: r.u });
-  const todos = invPuntosDe(u).filter(c => D.pdv[c] && (!invDia || vis[c])), conDato = todos.filter(c => I.pts[c]);
+  const sinPlanDia = !!invDia && !Object.keys(vis).length;                          // ese día no tiene visitas planeadas: se muestran todos los puntos con el aviso
+  const todos = invPuntosDe(u).filter(c => D.pdv[c] && (!invDia || sinPlanDia || vis[c])), conDato = todos.filter(c => I.pts[c]);
   const sinArchivo = invDia ? Object.keys(vis).filter(c => !I.pts[c]).length : 0;
   const cads = [...new Set(invPuntosDe(u).filter(c => D.pdv[c]).map(invCadena))].sort(), F = invFuentesTxt();
   const diaTxt = k => (k === dH ? 'Hoy · ' : k === dH + 1 ? 'Mañana · ' : '') + DIAS_L[wd(k)] + ' ' + k + ' ' + D.mesNombre.slice(0, 3);
@@ -1106,6 +1107,7 @@ function pintarInv() {
     <span class="sep"></span>
     ${ADMIN && !VISOR ? '<button class="b2" id="ivS" title="Subir los Excel INVRPT que descargas del CEN: puedes escoger varios a la vez (Éxito y Olímpica)">📂 Subir inventario</button>' : ''}${ADMIN && !VISOR ? '<button class="b2" id="ivDS" title="Subir el Excel de dinámicas comerciales y descuentos de las cadenas">🏷 Dinámicas</button>' : ''}${ADMIN && !VISOR && invLocal() ? '<button class="b2" id="ivL" title="Borra de este computador lo que subiste y vuelve al inventario publicado">🗑 Limpiar lo subido</button>' : ''}
     ${ADMIN && !VISOR && COORD && COORD.invVista ? '<button class="b1" id="ivE" title="Enlace que solo muestra el inventario y se vence en 10 horas">🔗 Enlace 10 h</button>' : ''}${VISOR ? '' : '<button class="b2" id="ivSh">📤 Compartir</button>'}${ADMIN && !VISOR ? '<button class="b2" id="ivX">⬇ Excel</button>' : ''}</div>`;
+  if (sinPlanDia && todos.length) h += `<div class="ivAv">📅 ${u ? esc(bonito((D.users[u] || {}).nombre || u)) + ' no tiene' : 'No hay'} visitas planeadas el ${esc(diaTxt(+invDia))}: se muestran todos ${u ? 'sus' : 'los'} puntos.</div>`;
   if (!todos.length && invDia) {
     h += `<div class="cvCar">${Object.keys(vis).length ? 'Los puntos que se visitan (' + esc(diaTxt(+invDia)) + ')' + ' no tienen archivo de inventario todavía' + (sinArchivo ? ' (' + pl(sinArchivo, 'visita', 'visitas') + ')' : '') + '.' : 'No hay visitas agendadas (' + esc(diaTxt(+invDia)) + ').'}<br><button class="b2" id="ivTodo">Ver todos los puntos</button></div>`;
     cont.innerHTML = h; invEventos(); return;
