@@ -1478,15 +1478,15 @@ async function invArmarEnlace(u) {                      // enlace corto, solo le
   if (!COORD || !COORD.invVista) throw new Error('falta el inventario publicado');
   const exp = Date.now() + INV_HORAS * 36e5, us = Object.keys(D.users).sort(), ui = u ? us.indexOf(u) + 1 : 0;
   const base = /^https?:\/\/[^/]*github\.io/.test(location.href) ? location.origin + location.pathname.replace(/[^/]*$/, '') : 'https://dloaiza05.github.io/planeador-ruta/';
-  const n = invPuntosDe(u).filter(c => invDatos().pts[c] && INV_CADENAS.includes(invCadena(c))).length;
-  return { url: base + 'i/#' + COORD.invVista.id + COORD.invVista.k + ui.toString(36).padStart(2, '0') + Math.ceil(exp / 60000).toString(36), exp, n };
+  const T = invPuntosDe(u).filter(c => D.pdv[c]), n = T.length, nd = T.filter(c => invDatos().pts[c]).length;   // todos sus puntos (no solo los que tienen archivo del CEN)
+  return { nd, url: base + 'i/#' + COORD.invVista.id + COORD.invVista.k + ui.toString(36).padStart(2, '0') + Math.ceil(exp / 60000).toString(36), exp, n };
 }
 async function invEnlace() {
   const u = ADMIN ? invPer : U;
   let r; try { toast('Armando el enlace…', 6000); r = await invArmarEnlace(u); } catch (e) { avisar('No pude armar el enlace: ' + e.message); return; }
   $('#toast').style.display = 'none';
   const vence = new Date(r.exp).toLocaleString('es-CO', { weekday: 'long', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
-  const msg = `📦 *Inventario Haleon${u ? ' · ' + bonito(D.users[u].nombre).split(' ')[0] : ' · equipo'}*\nAquí está el inventario de ${u ? 'tus puntos' : 'nuestros puntos'} (${pl(r.n, 'punto', 'puntos')}). Toca tu punto para ver qué hay, qué falta y si hay en el CEDI.\n${r.url}\n⏳ El enlace vence el ${vence}.`;
+  const msg = `📦 *Inventario Haleon${u ? ' · ' + bonito(D.users[u].nombre).split(' ')[0] : ' · equipo'}*\nAquí está el inventario de ${u ? 'tus puntos' : 'nuestros puntos'}: ${pl(r.n, 'punto', 'puntos')}, ${r.nd} con inventario del CEN (los demás salen con sus dinámicas). Toca tu punto para ver qué hay, qué falta y si hay en el CEDI.\n${r.url}\n⏳ El enlace vence el ${vence}.`;
   anclar(null); $('#modal').style.display = 'flex';
   $('#mbox').innerHTML = `<h3>🔗 Enlace temporal de inventario</h3><p class="mu" style="margin:0 0 8px">${u ? esc(bonito(D.users[u].nombre)) + ' · solo sus puntos, con todo su inventario' : 'Todo el equipo · cada punto con lo que hay que revisar'} · ${pl(r.n, 'punto', 'puntos')}</p>
     <p>⏳ Vence el <b>${esc(vence)}</b> (${INV_HORAS} horas). Se ve igual a esta sección (puntos, ficha de cada punto, filtros), en solo lectura: no abre el planeador, el panel ni los convenios. Si alguien cambia el enlace, no abre. Muestra el inventario publicado (${esc(invDatos().generado || '')}).</p>
