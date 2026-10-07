@@ -705,6 +705,7 @@ body.modo-lista main{grid-template-columns:1fr;padding-bottom:16px}
   #side .top{padding:10px 12px 6px}#hint{display:none}
   .day{min-width:0;border-left:0}
 }
+.ivHit{color:#1d4ed8}.g-q{border-left:4px solid #1d4ed8}
 
 body{background:var(--bg)}#vence{max-width:1180px;margin:10px auto 0;padding:9px 14px;font-size:13px;background:var(--warn-s);border:1px solid #f1d39b;color:#7a4b00;border-radius:12px}
 @media (max-width:860px){#vence{margin:8px 10px 0}}</style>
@@ -1076,12 +1077,12 @@ function pintarInv() {
   const u = ADMIN ? invPer : U;
   const hoy = new Date(), dH = hoy.getFullYear() === D.anio && hoy.getMonth() + 1 === D.mes ? hoy.getDate() : 0;
   const habiles = []; for (let k = 1; k <= D.dias; k++) if (ventana(k)) habiles.push(k);
-  if (invDia === null) invDia = habiles.includes(dH) && (!u || cvRutaDia(dH).some(r => r.u === u && r.vis.length)) ? dH : '';   // por defecto: los puntos que se visitan hoy; si la persona no tiene visitas programadas hoy (p. ej. Periferia sin planeación), todos sus puntos
+  if (invDia === null) invDia = '';   // por defecto: TODOS los puntos (pedido de Diego 7-oct); el día se escoge en el filtro   // por defecto: los puntos que se visitan hoy; si la persona no tiene visitas programadas hoy (p. ej. Periferia sin planeación), todos sus puntos
   const vis = {};                                                                    // código → [{hora, u}] de las visitas de ese día
   if (invDia) for (const r of cvRutaDia(+invDia)) if (!u || r.u === u) for (const v of r.vis) (vis[v.cod] = vis[v.cod] || []).push({ hora: v.hora, u: r.u });
-  const todos = invPuntosDe(u).filter(c => INV_CADENAS.includes(invCadena(c)) && (!invDia || vis[c])), conDato = todos.filter(c => I.pts[c]);
-  const sinArchivo = invDia ? Object.keys(vis).filter(c => !I.pts[c] && INV_CADENAS.includes(invCadena(c))).length : 0;
-  const cads = [...new Set(invPuntosDe(u).filter(c => INV_CADENAS.includes(invCadena(c))).map(invCadena))].sort(), F = invFuentesTxt();
+  const todos = invPuntosDe(u).filter(c => D.pdv[c] && (!invDia || vis[c])), conDato = todos.filter(c => I.pts[c]);
+  const sinArchivo = invDia ? Object.keys(vis).filter(c => !I.pts[c]).length : 0;
+  const cads = [...new Set(invPuntosDe(u).filter(c => D.pdv[c]).map(invCadena))].sort(), F = invFuentesTxt();
   const diaTxt = k => (k === dH ? 'Hoy · ' : k === dH + 1 ? 'Mañana · ' : '') + DIAS_L[wd(k)] + ' ' + k + ' ' + D.mesNombre.slice(0, 3);
   const Lt = conDato.map(invAnalisis).filter(Boolean);
   let L = invCad ? Lt.filter(a => a.cad === invCad) : Lt.slice();
@@ -1095,7 +1096,7 @@ function pintarInv() {
   L.sort((a, b) => invDia && u ? hv(a.cod) - hv(b.cod) : b.prio - a.prio || pdv(a.cod)[0].localeCompare(pdv(b.cod)[0]));   // una persona y un día: en el orden de la ruta
   const T = k => L.reduce((s, a) => s + a[k], 0), ref = T('ref'), conRef = T('conRef');
   const fu = Object.entries(F).map(([c, f]) => { const g = invGenCEN(c, f); return `<span class="ivCh" title="Fecha del inventario y hora en que el CEN generó el reporte">${esc(bonito(c))} · inventario del ${invFecha(f)}${g ? ' · CEN ' + esc(g) : ''}</span>`; }).join('');
-  const faltan = cads.filter(c => !F[c]);
+  const faltan = cads.filter(c => !F[c] && INV_CADENAS.includes(c));
   let h = `<div class="cvT"><h2>📦 Inventarios</h2>${fu}${I.generado ? `<span>📥 cargado a la página: ${esc(invFH(I.generado))}</span>` : ''}${(invDin().cargado) ? `<span>🏷 dinámicas cargadas: ${esc(invFH(invDin().cargado))}</span>` : ''}</div>`;
   h += `<div class="cvTool ivTool">${ADMIN ? `<select id="ivU" aria-label="Persona"><option value="">Todo el equipo</option>${Object.keys(D.users).sort((a, b) => String(D.users[a].nombre).localeCompare(String(D.users[b].nombre))).map(x => `<option value="${esc(x)}"${x === invPer ? ' selected' : ''}>${esc(bonito(D.users[x].nombre))} · ${esc(x)}</option>`).join('')}</select>` : ''}
     <select id="ivD" aria-label="Día de visita"><option value="">📅 Todos los puntos</option>${habiles.map(k => `<option value="${k}"${k === +invDia ? ' selected' : ''}>📅 Visitas del ${diaTxt(k)}</option>`).join('')}</select>
@@ -1141,7 +1142,7 @@ function pintarInv() {
   if (faltan.length && ADMIN && !VISOR) h += `<div class="ivAv">Sin archivo todavía: <b>${faltan.map(bonito).map(esc).join(', ')}</b>. Descárgalo del CEN (Gestión de Inventarios → Consulta de Reporte de Inventarios). De Éxito sirve el reporte de la regional Bogotá/Centro.</div>`;
   h += `<div class="ivGrid"><div class="ivLst">${L.map(a => {
     const un = invDueno(a.cod), nm = un && D.users[un] ? bonito(D.users[un].nombre).split(' ').slice(0, 2).join(' ') : '';
-    return `<button class="ivP${a.cod === invSel ? ' on' : ''}" data-iv="${esc(a.cod)}"><b>${esc(pdv(a.cod)[0])}</b><span>${vis[a.cod] ? '🕘 ' + vis[a.cod].map(x => fmt(x.hora)).join(', ') + ' · ' : ''}${esc(bonito(a.cad))}${ADMIN && !invPer && nm ? ' · ' + esc(nm) : ''} · inventario del ${invFecha(a.f)}</span><span class="ivHy">✅ ${a.skus} productos con inventario · ${a.unid.toLocaleString('es-CO')} unidades</span><i>${invChips(a)}</i></button>`;
+    return `<button class="ivP${a.cod === invSel ? ' on' : ''}" data-iv="${esc(a.cod)}"><b>${esc(pdv(a.cod)[0])}</b><span>${vis[a.cod] ? '🕘 ' + vis[a.cod].map(x => fmt(x.hora)).join(', ') + ' · ' : ''}${esc(bonito(a.cad))}${ADMIN && !invPer && nm ? ' · ' + esc(nm) : ''} · inventario del ${invFecha(a.f)}</span><span class="ivHy">✅ ${a.skus} productos con inventario · ${a.unid.toLocaleString('es-CO')} unidades</span>${invHits(a, q)}<i>${invChips(a)}</i></button>`;
   }).join('')}${SD.map(c => { const un = invDueno(c), nm = un && D.users[un] ? bonito(D.users[un].nombre).split(' ').slice(0, 2).join(' ') : '', n = dinN(c);
     return `<button class="ivP sd${c === invSel ? ' on' : ''}" data-iv="${esc(c)}"><b>${esc(pdv(c)[0])}</b><span>${vis[c] ? '🕘 ' + vis[c].map(x => fmt(x.hora)).join(', ') + ' · ' : ''}${esc(bonito(invCadena(c)))}${ADMIN && !invPer && nm ? ' · ' + esc(nm) : ''}</span><span class="ivHy">⚪ Sin data de inventario (tienda ni CEDI)${n ? ' · 🏷 ' + pl(n, 'dinámica', 'dinámicas') : ''}</span></button>`; }).join('')}${!L.length && !SD.length ? '<div class="cvCar">Nada con ese filtro.</div>' : ''}</div><div class="ivDet" id="ivDet"></div></div>`;
   h += invEjecutivo(L, u);
@@ -1149,6 +1150,12 @@ function pintarInv() {
   cont.innerHTML = h;
   if (!invSel || !(L.some(a => a.cod === invSel) || SD.includes(invSel))) invSel = L[0] ? L[0].cod : (SD[0] || '');
   invDetalle(invSel); invEventos();
+}
+function invHits(a, q) {                                // 🔎 buscar producto: cuánto hay de ese producto en cada punto
+  if (!q) return '';
+  const H = a.it.filter(v => normH(v.d + ' ' + v.m + ' ' + v.e).includes(q)); if (!H.length) return '';
+  const st = v => v.est === 'agot' ? '0 🔴' : v.est === 'noap' ? '⚪ no aparece' : v.est === 'neg' ? invNum(v.q) + ' 🟣' : invNum(v.q) + ' u' + (v.est === 'bajo' ? ' 🟠' : '');
+  return `<span class="ivHy ivHit">🔎 ${H.slice(0, 5).map(v => esc(invCorto(v.d)) + ': <b>' + st(v) + '</b>').join(' · ')}${H.length > 5 ? ' · +' + (H.length - 5) + ' más' : ''}</span>`;
 }
 function invEjecutivo(L, u) {                           // 📊 para el jefe / ejecutivo: por cadena, por marca, lo que más falta, rotación
   if (!L.length) return '';
@@ -1242,6 +1249,7 @@ function invDetalle(cod) {
     <div class="ivFe">📅 Inventario del <b>${invFecha(a.f)}</b> (${esc(bonito(a.cad))}, reporte del CEN${invGenCEN(a.cad, a.f) ? ' generado el ' + esc(invGenCEN(a.cad, a.f)) : ''}${invDatos().generado ? ' · cargado a la página el ' + esc(invFH(invDatos().generado)) : ''})${a.fa ? ' · el anterior es del ' + invFecha(a.fa) : ''}<br>🏬 Lo surte: <b>${esc((() => { const x = invCediDe(a.cad, cod); if (x) return x; const C = (invDatos().cedis || {})[a.cad], n = C ? Object.keys(C.b) : []; return !n.length ? 'sin dato de CEDI' : 'por confirmar — se suman las bodegas de ' + cadN + ' (' + n.map(x => x.replace(/^(Centro de Distribución |CEDI |CD )/i, '')).join(' · ') + ')'; })())}</b></div>
     ${(() => { const md = invDin().m.filter(r => r[0] === a.cad), h = hoyISO(); if (!md.length && !a.din) return '';
       return `<div class="ivDm">${invOjo('pt')}🏷 <b>Dinámicas de ${esc(cadN)} este mes:</b> ${a.din ? pl(a.din, 'producto con descuento o actividad', 'productos con descuento o actividad') + ' en esta tienda' + (a.dinF ? ` · <b class="r">⚡ ${a.dinF} sin producto suficiente</b>` : ' · todos con producto ✅') : 'ningún producto de esta tienda'}<div class="ivDx">${invDinResumen(a.it.filter(v => v.din && v.din.length).flatMap(v => v.din.map(r => [r, v.m || v.c || String(r[2]).split(' ')[0], v.d, v.est !== 'ok'])))}</div>${md.length ? '<br>📅 Días de descuento: ' + md.map(r => `<span${r[1] === h ? ' class="hoy"' : ''}>${esc(invDiaTxt(r[1], r[1]))} ${esc(r[3])}${r[2] ? ' (' + esc(r[2]) + ')' : ''}${r[1] === h ? ' · ¡HOY!' : ''}</span>`).join(' · ') : ''}</div>`; })()}
+    ${(() => { const qq = normH(invQ), H = qq ? it.filter(v => normH(v.d + ' ' + v.m + ' ' + v.e).includes(qq)) : []; return H.length ? `<div class="ivG g-q"><h4>🔎 «${esc(invQ)}» en esta tienda <small>${H.length}</small></h4>${H.map(filaH).join('')}</div>` : ''; })()}
     <div class="ivHay"><b>✅ En esta tienda hay ${a.unid.toLocaleString('es-CO')} unidades de ${a.skus} productos Haleon</b><div class="ivMs">${(() => { const m = {}; for (const v of a.it) if (v.q > 0) { const k = v.m || v.c; m[k] = m[k] || [0, 0]; m[k][0] += v.q; m[k][1]++; } return Object.entries(m).sort((x, y) => y[1][0] - x[1][0]).map(([k, [u, n]]) => `<span><b>${esc(k)}</b> ${Math.round(u).toLocaleString('es-CO')} u · ${n} ref.</span>`).join(''); })()}</div></div>
     <div class="ivRs">Esta tienda tiene <b>${a.conRef}</b> de los <b>${a.ref}</b> productos que manejan tus ${esc(cadN)} (surtido <b>${invPct(a.surt)}</b>).${a.noap ? ` ⚪ <b>${a.noap}</b> no aparecen en el reporte de la cadena: revísalos en la visita.` : ''}${a.agot ? ` 🔴 <b>${a.agot}</b> agotados${[a.pedir ? `<b>${a.pedir}</b> se pueden pedir (hay en el ${esc(invCediNom(a.cad, cod))})` : '', a.escalar ? `<b>${a.escalar}</b> no hay ni en el CEDI → avisar al ejecutivo` : ''].filter(Boolean).map((t, i) => (i ? ' y ' : ': ') + t).join('')}.` : ''}</div>
     <details class="ivG g-ok" id="ivOk" open><summary><h4>✅ Con inventario <small>${ok.length}</small></h4> <span class="lnk">ocultar / mostrar</span></summary>${ok.map(filaH).join('')}</details>
