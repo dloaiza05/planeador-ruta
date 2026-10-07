@@ -1087,10 +1087,11 @@ function pintarInv() {
   const Lt = conDato.map(invAnalisis).filter(Boolean);
   let L = invCad ? Lt.filter(a => a.cad === invCad) : Lt.slice();
   const q = normH(invQ);
-  if (q) L = L.filter(a => normH(pdv(a.cod)[0] + ' ' + a.cod + ' ' + bonito((D.users[invDueno(a.cod)] || {}).nombre || '')).includes(q) || a.it.some(v => normH(v.d + ' ' + v.m + ' ' + v.e).includes(q)));
+  const txtP = c => normH(pdv(c)[0] + ' ' + c + ' ' + pdv(c)[2] + ' ' + pdv(c)[3] + ' ' + bonito((D.users[invDueno(c)] || {}).nombre || ''));   // nombre, código, ciudad, dirección y mercaderista
+  if (q) L = L.filter(a => txtP(a.cod).includes(q) || a.it.some(v => normH(v.d + ' ' + v.m + ' ' + v.e).includes(q)));
   const hv = c => vis[c] ? Math.min(...vis[c].map(x => x.hora)) : 0;
   let SD = todos.filter(c => !I.pts[c] && (!invCad || invCadena(c) === invCad));       // puntos sin inventario: salen igual, con sus dinámicas
-  if (q) SD = SD.filter(c => normH(pdv(c)[0] + ' ' + c + ' ' + bonito((D.users[invDueno(c)] || {}).nombre || '')).includes(q));
+  if (q) SD = SD.filter(c => txtP(c).includes(q));
   SD.sort((a, b) => invDia && u ? hv(a) - hv(b) : invCadena(a).localeCompare(invCadena(b)) || pdv(a)[0].localeCompare(pdv(b)[0]));
   const dinN = c => invDin().p.filter(r => r[0] === invCadena(c)).length;
   L.sort((a, b) => invDia && u ? hv(a.cod) - hv(b.cod) : b.prio - a.prio || pdv(a.cod)[0].localeCompare(pdv(b.cod)[0]));   // una persona y un día: en el orden de la ruta
@@ -1144,12 +1145,19 @@ function pintarInv() {
     const un = invDueno(a.cod), nm = un && D.users[un] ? bonito(D.users[un].nombre).split(' ').slice(0, 2).join(' ') : '';
     return `<button class="ivP${a.cod === invSel ? ' on' : ''}" data-iv="${esc(a.cod)}"><b>${esc(pdv(a.cod)[0])}</b><span>${vis[a.cod] ? '🕘 ' + vis[a.cod].map(x => fmt(x.hora)).join(', ') + ' · ' : ''}${esc(bonito(a.cad))}${ADMIN && !invPer && nm ? ' · ' + esc(nm) : ''} · inventario del ${invFecha(a.f)}</span><span class="ivHy">✅ ${a.skus} productos con inventario · ${a.unid.toLocaleString('es-CO')} unidades</span>${invHits(a, q)}<i>${invChips(a)}</i></button>`;
   }).join('')}${SD.map(c => { const un = invDueno(c), nm = un && D.users[un] ? bonito(D.users[un].nombre).split(' ').slice(0, 2).join(' ') : '', n = dinN(c);
-    return `<button class="ivP sd${c === invSel ? ' on' : ''}" data-iv="${esc(c)}"><b>${esc(pdv(c)[0])}</b><span>${vis[c] ? '🕘 ' + vis[c].map(x => fmt(x.hora)).join(', ') + ' · ' : ''}${esc(bonito(invCadena(c)))}${ADMIN && !invPer && nm ? ' · ' + esc(nm) : ''}</span><span class="ivHy">⚪ Sin data de inventario (tienda ni CEDI)${n ? ' · 🏷 ' + pl(n, 'dinámica', 'dinámicas') : ''}</span></button>`; }).join('')}${!L.length && !SD.length ? '<div class="cvCar">Nada con ese filtro.</div>' : ''}</div><div class="ivDet" id="ivDet"></div></div>`;
+    return `<button class="ivP sd${c === invSel ? ' on' : ''}" data-iv="${esc(c)}"><b>${esc(pdv(c)[0])}</b><span>${vis[c] ? '🕘 ' + vis[c].map(x => fmt(x.hora)).join(', ') + ' · ' : ''}${esc(bonito(invCadena(c)))}${ADMIN && !invPer && nm ? ' · ' + esc(nm) : ''}</span><span class="ivHy">⚪ Sin data de inventario (tienda ni CEDI)${n ? ' · 🏷 ' + pl(n, 'dinámica', 'dinámicas') : ''}</span></button>`; }).join('')}${!L.length && !SD.length ? invNada(q, u) : ''}</div><div class="ivDet" id="ivDet"></div></div>`;
   h += invEjecutivo(L, u);
   h += `<p class="mu ivPie">Fuente: reportes INVRPT del CEN Carvajal (producto, cantidad y punto con su GLN). El CEN no manda PLU, mínimos/máximos ni ventas: <b>Normal</b> es lo que suelen tener tus puntos de esa cadena (calculado) y la <b>rotación</b> sale de comparar el inventario de un día con el siguiente. Si un producto no aparece en el punto, el CEN lo reporta en cero (agotado o sin codificar).</p>`;
   cont.innerHTML = h;
   if (!invSel || !(L.some(a => a.cod === invSel) || SD.includes(invSel))) invSel = L[0] ? L[0].cod : (SD[0] || '');
   invDetalle(invSel); invEventos();
+}
+function invNada(q, u) {                                // sin resultados: decir en qué ruta sí está (otra persona o sin filtro de día/cadena)
+  if (!q) return '<div class="cvCar">Nada con ese filtro.</div>';
+  const txt = c => normH(pdv(c)[0] + ' ' + c + ' ' + pdv(c)[2] + ' ' + pdv(c)[3]);
+  const X = invPuntosDe('').filter(c => D.pdv[c] && txt(c).includes(q)).slice(0, 12);
+  if (!X.length) return `<div class="cvCar">«${esc(invQ)}» no aparece en ningún punto ni producto${u ? ' de ' + esc(bonito((D.users[u] || {}).nombre || u)) : ''}.</div>`;
+  return `<div class="cvCar">«${esc(invQ)}» no está en ${u ? 'la ruta de ' + esc(bonito((D.users[u] || {}).nombre || u)) : 'este filtro'}. Sí está en:<br>${X.map(c => { const d = invDueno(c); return '• ' + esc(pdv(c)[0]) + ' · ' + esc(bonito(invCadena(c))) + (d && D.users[d] ? ' · ' + esc(bonito(D.users[d].nombre)) + ' (' + esc(d) + ')' : ''); }).join('<br>')}<br><button class="b2" id="ivTodo2">🔎 Buscar en todo el equipo</button></div>`;
 }
 function invHits(a, q) {                                // 🔎 buscar producto: cuánto hay de ese producto en cada punto
   if (!q) return '';
@@ -1262,6 +1270,7 @@ function invEventos() {
   if ($('#ivC')) $('#ivC').onchange = () => { invCad = $('#ivC').value; invSel = ''; pintarInv(); };
   if ($('#ivD')) $('#ivD').onchange = () => { invDia = $('#ivD').value; invSel = ''; pintarInv(); };
   on('ivTodo', () => { invDia = ''; invSel = ''; pintarInv(); });
+  on('ivTodo2', () => { invPer = ''; invDia = ''; invCad = ''; invSel = ''; pintarInv(); });
   if ($('#ivQ')) { let t; $('#ivQ').oninput = () => { clearTimeout(t); t = setTimeout(() => { invQ = $('#ivQ').value; const p = $('#ivQ').selectionStart; pintarInv(); const i = $('#ivQ'); i.focus(); i.setSelectionRange(p, p); }, 250); }; }
   document.querySelectorAll('#invIn [data-iv]').forEach(b => b.onclick = () => { invSel = b.dataset.iv; invDetalle(invSel); if (innerWidth < 860) $('#ivDet').scrollIntoView({ behavior: 'smooth' }); });
   on('ivS', invElegirArchivo); on('ivDS', invDinSubir); on('ivSh', invCompartir); on('ivX', invExcel); on('ivE', invEnlace);
