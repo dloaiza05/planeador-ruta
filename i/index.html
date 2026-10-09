@@ -761,7 +761,7 @@ const bonito = t => String(t || '').toLowerCase().replace(/\s+/g, ' ').trim().re
 const esMovil = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 let D = null, ADMIN = false, U = null, VIS = {}, CONV = {}; const COORD = null;
 function cvTodosPts() { const o = {}; for (const [c, e] of Object.entries(CONV)) o[c] = { exh: e }; return o; }
-function cvRutaDia(d) { const out = []; for (const [u, L] of Object.entries(VIS)) { const v = L.filter(x => x[1] === d).map(x => ({ cod: x[0], hora: x[2] })); if (v.length) out.push({ u, vis: v }); } return out; }
+function cvRutaDia(d) { const out = []; for (const [u, L] of Object.entries(VIS)) { const dd = (D.mover || {})[d] || d; const v = L.filter(x => x[1] === dd).map(x => ({ cod: x[0], hora: x[2] })); if (v.length) out.push({ u, vis: v }); } return out; }
 const bajarBlob = () => { }, cvEntregar = async () => { };
 // =====================================================================================================
 // 📦 INVENTARIOS (CEN Carvajal · reportes INVRPT) — solo los puntos de la ruta
