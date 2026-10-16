@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es"><head><meta name="robots" content="noindex,nofollow,noarchive,nosnippet"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><title>Seguimiento</title>
+<style>body{font:15px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;padding:40px 20px;text-align:center;color:#334155;background:#fff}small{color:#64748b}</style></head>
+<body><p id="m">Abriendo…</p><script>
+(async () => {
+  const m = document.getElementById('m'), falla = t => { m.innerHTML = '🔒 ' + t + '<br><small>Pídele a Diego un enlace nuevo.</small>'; };
+  try {
+    const h = location.hash.slice(1).replace(/[^A-Za-z0-9]/g, '');
+    if (h.length < 23) return falla('Enlace incompleto');
+    const id = h.slice(0, 6), sec = h.slice(6, 22), exp = parseInt(h.slice(22), 36) * 60000;
+    if (!exp || Date.now() > exp) return falla('Este enlace venció');
+    const r = await fetch(id + '.json', { cache: 'no-store' }); if (!r.ok) return falla('Este enlace ya no está disponible');
+    const A = await r.json(), b = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+    const kraw = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sec))).slice(0, 16);
+    const key = await crypto.subtle.importKey('raw', kraw, 'AES-GCM', false, ['decrypt']);
+    let z; try { z = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b(A.i) }, key, b(A.c)); } catch (e) { return falla('Este enlace no es válido'); }
+    const html = await new Response(new Blob([z]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    const guard = '<body><script>const VENCE=' + exp + ';setInterval(()=>{if(Date.now()>VENCE)document.body.innerHTML="<p style=\\"font:16px system-ui;padding:24px;text-align:center\\">Este enlace venció. Pídele a Diego uno nuevo.</p>"},60000);<' + '/script>';
+    document.open(); document.write(html.replace('<body>', guard)); document.close();
+  } catch (e) { falla('No se pudo abrir el enlace'); }
+})();
+</script></body></html>
