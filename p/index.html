@@ -1,0 +1,20 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>Mi planeador de ruta</title><style>body{margin:0;background:#f5f7fb;color:#1f2937;font:17px system-ui}main{max-width:600px;margin:6vh auto;padding:24px;background:white;border-radius:18px}h1{font-size:28px;margin:0 0 8px}label{display:block;font-weight:600;margin:24px 0 8px}select,button{font:inherit;padding:16px;width:100%;border-radius:10px;border:1px solid #cbd5e1}button{background:#137a48;color:white;margin-top:20px;border:0;font-weight:700}button:disabled{opacity:.5}#error{color:#a12622;line-height:1.5}p{line-height:1.5}.hint{font-size:15px;color:#536173}</style></head><body><main><h1 id="titulo">Mi planeador de ruta</h1><p>Selecciona tu nombre. Revisa tu código antes de empezar.</p><label for="persona">Tu nombre y código</label><select id="persona"><option value="">Cargando personas…</option></select><button id="entrar" disabled>Abrir mi planeador</button><p class="hint">Guarda y descarga tu Excel al terminar. Después envíaselo a Diego por WhatsApp. Tu avance se conserva en este navegador; no se sincroniza con otros celulares.</p><p id="error" role="alert"></p></main><script>
+(async()=>{
+const $=id=>document.getElementById(id),ub=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+try{
+ const [id,key,exp]=location.hash.slice(1).split('.');
+ if(!/^[a-f0-9]{24}$/.test(id||'')||!key||!/^\d{13}$/.test(exp||''))throw new Error('Abre el enlace completo que compartió Diego.');
+ if(Date.now()>Number(exp))throw new Error('El enlace venció. Pídele a Diego uno nuevo. Tu Excel descargado y tu avance local no se borraron.');
+ async function decrypt(file,k){const res=await fetch('t/'+file+'.json',{cache:'no-store'});if(!res.ok)throw new Error('No se pudo cargar. Revisa tu conexión e inténtalo de nuevo.');const x=await res.json(),ck=await crypto.subtle.importKey('raw',ub(k),'AES-GCM',false,['decrypt']);const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:ub(x.iv)},ck,ub(x.data));return JSON.parse(await new Response(new Blob([plain]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text());}
+ const pack=await decrypt(id,key);$('titulo').textContent='Planeador · '+pack.monthName;
+ const select=$('persona');select.replaceChildren(new Option('Selecciona tu nombre…',''));pack.people.forEach(p=>select.add(new Option(p.name+' · '+p.user,p.user)));select.onchange=()=>{$('entrar').disabled=!select.value;};
+ $('entrar').onclick=async()=>{const p=pack.people.find(p=>p.user===select.value);if(!p)return;$('entrar').disabled=true;$('error').textContent='';
+  try{if(Date.now()>Number(exp))throw new Error('El enlace venció. Pídele uno nuevo a Diego.');const app=await decrypt(p.id,p.key);
+   window.__PERSONAL={user:p.user,month:pack.month};window.__PERSONAL_D=app.D;
+   localStorage.setItem('planeador-cuenta',p.user);localStorage.setItem('planeador-usr',p.user);sessionStorage.removeItem('planeador-admin');
+   document.open();document.write(app.html);document.close();
+  }catch(e){$('error').textContent=e.message;$('entrar').disabled=false;}
+ };
+}catch(e){$('error').textContent=e.message;}
+})();
+</script></body></html>
