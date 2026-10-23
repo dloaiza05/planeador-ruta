@@ -708,6 +708,37 @@ body.modo-lista main{grid-template-columns:1fr;padding-bottom:16px}
 .ivHit{color:#1d4ed8}.g-q{border-left:4px solid #1d4ed8}
 .cvModo{display:flex;gap:6px;margin:4px 0 10px}.cvModo button{font:inherit;padding:7px 14px;border-radius:99px;border:1px solid #c9ced8;background:#fff;cursor:pointer}.cvModo button.on{background:#5b3fd1;color:#fff;border-color:#5b3fd1}
 
+/* Controles de horario: solo dentro del diálogo; calendario mensual intacto. */
+.horas-visita{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.horas-visita label{display:flex;flex-direction:column;gap:5px;font-weight:600;font-size:13px;min-width:0}
+.horas-visita input{width:100%;box-sizing:border-box;min-height:48px;font:700 22px inherit;font-family:inherit;font-size:22px;border:1px solid #c9ced8;border-radius:10px;padding:10px;background:#fff;color:var(--ink)}
+#mbox.toque-amplio{--toque:1;width:min(calc(100vw - 24px),calc(390px * var(--toque)))!important;max-width:none!important;max-height:90vh;overflow:auto;padding:calc(18px * var(--toque));font-size:calc(14px * var(--toque))}
+#mbox.toque-amplio h3,#mbox.toque-amplio .pn{font-size:calc(18px * var(--toque))!important}
+#mbox.toque-amplio p,#mbox.toque-amplio .pm,#mbox.toque-amplio .pt,#mbox.toque-amplio label,#mbox.toque-amplio .err,#mbox.toque-amplio .ayuda-hora{font-size:calc(13px * var(--toque))!important}
+#mbox.toque-amplio input,#mbox.toque-amplio select{font-size:calc(21px * var(--toque));min-height:calc(44px * var(--toque));padding:calc(8px * var(--toque));max-width:100%}
+#mbox.toque-amplio button{font-size:calc(14px * var(--toque));min-height:calc(40px * var(--toque));padding:calc(6px * var(--toque)) calc(10px * var(--toque))}
+#mbox.toque-amplio .hdias button{min-height:calc(36px * var(--toque));padding:0}
+#mbox.toque-amplio .hdw{font-size:calc(12px * var(--toque))}
+#mbox.toque-amplio .acts{gap:calc(8px * var(--toque));flex-wrap:wrap}
+
+
+/* Día ampliado: el mes conserva su distribución; solo crece el editor emergente. */
+.alm-resumen{display:flex;align-items:center;flex-wrap:wrap;gap:7px;background:#f5f7fa;border-radius:9px;padding:10px;margin:10px 0;font-size:13px}
+.alm-resumen span{flex:1;min-width:150px}
+#mbox.dia-amplio{width:min(94vw,720px);max-width:720px}
+#mbox.toque-amplio .alm-resumen{font-size:calc(13px * var(--toque));padding:calc(8px * var(--toque))}
+#mbox.toque-amplio .tlh{flex-basis:calc(46px * var(--toque))}
+#mbox.toque-amplio .tlh div,#mbox.toque-amplio .tb{font-size:calc(12px * var(--toque))}
+#mbox.toque-amplio .tb{padding:calc(5px * var(--toque));left:calc(5px * var(--toque));right:calc(5px * var(--toque))}
+#mbox.toque-amplio .tb .tt{font-size:calc(12px * var(--toque))}
+#mbox.toque-amplio .tb .nn{font-size:calc(14px * var(--toque))}
+#mbox.toque-amplio .tlay{font-size:calc(12px * var(--toque))}
+#mbox.toque-amplio .dhd{flex-wrap:wrap}
+
+body.personal .mv .mctl{display:none!important}body.personal .mv .mvt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}body.personal .mv:hover,body.personal .mv:focus-within{min-height:38px!important}body.personal .mv:hover .mvt,body.personal .mv:focus-within .mvt{white-space:normal;padding-bottom:22px}body.personal .editar-visita{display:none;position:absolute;bottom:1px;right:2px;min-height:22px}body.personal .mv:hover .editar-visita,body.personal .mv:focus-within .editar-visita{display:block}body.personal .mv{touch-action:none}body.personal #mbox{max-height:85vh;overflow:auto}body.personal #mbox input[type=time]{font-size:22px;min-height:48px}body.personal #mbox .acts button{min-height:44px}
+#togglePuntos{display:none}@media(max-width:760px){body.personal header{padding:6px 8px;gap:5px}body.personal header h1{display:none}body.personal #personaTitulo{padding:9px 12px;gap:2px}body.personal #personaTitulo strong{font-size:18px}body.personal #personaTitulo span{font-size:14px}body.personal #personaTitulo small{display:none}body.personal #save{padding:10px;font-size:12px}body.personal #exp{font-size:11px;margin-left:0;order:3;padding:7px}body.personal #togglePuntos{display:block;order:3;margin-left:auto;padding:7px 12px;font-size:12px}body.personal #side{max-height:240px}body.personal #side .top{padding:6px 10px}body.personal #side .lnk{display:none}body.personal #side #q{padding:5px}body.personal:not(.puntos-abiertos) #side{display:none}body.personal main{padding-bottom:250px}body.personal .mgrid{grid-auto-rows:70px}body.personal .mcell{padding:3px}body.personal .mdw{display:none}body.personal .ch.vis{height:10px;touch-action:none}body.personal #navT{font-size:14px}body.personal #navT>span{display:block;font-size:10px!important;margin:3px 0!important}body.personal #calwrap{overflow:visible}body.personal #calnav{display:block!important}}
+[hidden]{display:none!important}body.personal #secc,body.personal #menu,body.personal #cuentaBox,body.personal #usr .ch{display:none!important}#personaTitulo{flex:0 0 100%;display:flex;flex-direction:column;gap:5px;background:#eaf4ef;padding:14px 18px;border-radius:12px}#personaTitulo strong{font-size:25px;color:#145235}#personaTitulo span{font-size:17px;font-weight:650}#personaTitulo small{font-size:13px;color:#405a4b}body.personal header{flex-wrap:wrap}body.personal #save{background:#137a48;color:white;padding:12px 16px}body.personal #exp{background:white;color:#137a48;border:1px solid #137a48}.editar-visita{border:1px solid #b6c8c0;border-radius:5px;background:white;color:#215d44;font:inherit;font-size:11px;cursor:pointer;margin-left:4px;padding:2px 5px}.personal .mvt{white-space:normal}.personal .hin,.personal .hfn,.personal .dsel{display:none!important}.manteniendo{outline:2px solid #247d56;outline-offset:2px}
+
 body{background:var(--bg)}#vence{max-width:1180px;margin:10px auto 0;padding:9px 14px;font-size:13px;background:var(--warn-s);border:1px solid #f1d39b;color:#7a4b00;border-radius:12px}
 @media (max-width:860px){#vence{margin:8px 10px 0}}</style>
 </head>
@@ -746,10 +777,10 @@ function ventana(d) {
 const pdv = c => D.pdv[c] || ['?', '', '', '', '', '', null, null];
 const pl = (n, s1, s2) => n + ' ' + (n === 1 ? s1 : s2);
 function toast(m, ms = 2600, btn, fn) { const t = $('#toast'); t.textContent = m; if (btn) { const b = document.createElement('button'); b.className = 'tbtn'; b.textContent = btn; b.onclick = () => { t.style.display = 'none'; fn(); }; t.appendChild(b); } t.style.display = 'block'; clearTimeout(t._t); t._t = setTimeout(() => t.style.display = 'none', ms); }
-function cerrar() { $('#modal').style.display = 'none'; $('#modal').classList.remove('pop'); $('#mbox').removeAttribute('style'); $('#mbox').classList.remove('big'); }
+function cerrar() { $('#mbox').classList.remove('toque-amplio','dia-amplio'); $('#modal').style.display = 'none'; $('#modal').classList.remove('pop'); $('#mbox').removeAttribute('style'); $('#mbox').classList.remove('big'); }
 function anclar(el) {                              // ventanita pegada al elemento (o centrada si no hay)
   const m = $('#modal'), b = $('#mbox');
-  b.classList.remove('big');
+  b.classList.remove('big', 'toque-amplio','dia-amplio');
   if (!el) { m.classList.remove('pop'); b.removeAttribute('style'); m.style.display = 'flex'; return; }
   m.classList.add('pop'); m.style.display = 'block';
   const r = el.getBoundingClientRect(), bw = Math.min(350, innerWidth - 20);
@@ -1256,7 +1287,7 @@ function invDetalle(cod) {
     return `<div class="ivG g-${k}"><h4>${e.i} ${e.t} <small>${L.length}</small></h4><p class="ivGd">${e.d}</p>${L.map(filaH).join('')}</div>`; };
   const ok = it.filter(v => v.est === 'ok').sort((x, y) => String(x.m).localeCompare(String(y.m)) || y.q - x.q);
   el.innerHTML = `<div class="ivDh"><div><h3>${esc(pdv(cod)[0])}</h3><span>${esc(bonito(a.cad))} · código ${esc(cod)}${a.g ? ' · GLN ' + esc(a.g) : ''}${un && D.users[un] ? ' · ' + esc(bonito(D.users[un].nombre)) : ''} · inventario del ${invFecha(a.f)}${a.fa ? ' (antes: ' + invFecha(a.fa) + ')' : ''}</span></div>
-      <button class="b2" id="ivDs">📋 Copiar</button></div>
+      <button class="b2" id="ivDs">📋 Copiar</button><button class="b2" id="ivHab" title="Leer el inventario en voz alta">🔊 Escuchar</button></div>
     <div class="ivFe">📅 Inventario del <b>${invFecha(a.f)}</b> (${esc(bonito(a.cad))}, reporte del CEN${invGenCEN(a.cad, a.f) ? ' generado el ' + esc(invGenCEN(a.cad, a.f)) : ''}${invDatos().generado ? ' · cargado a la página el ' + esc(invFH(invDatos().generado)) : ''})${a.fa ? ' · el anterior es del ' + invFecha(a.fa) : ''}<br>🏬 Lo surte: <b>${esc((() => { const x = invCediDe(a.cad, cod); if (x) return x; const C = (invDatos().cedis || {})[a.cad], n = C ? Object.keys(C.b) : []; return !n.length ? 'sin dato de CEDI' : 'por confirmar — se suman las bodegas de ' + cadN + ' (' + n.map(x => x.replace(/^(Centro de Distribución |CEDI |CD )/i, '')).join(' · ') + ')'; })())}</b></div>
     ${(() => { const md = invDin().m.filter(r => r[0] === a.cad), h = hoyISO(); if (!md.length && !a.din) return '';
       return `<div class="ivDm">${invOjo('pt')}🏷 <b>Dinámicas de ${esc(cadN)} este mes:</b> ${a.din ? pl(a.din, 'producto con descuento o actividad', 'productos con descuento o actividad') + ' en esta tienda' + (a.dinF ? ` · <b class="r">⚡ ${a.dinF} sin producto suficiente</b>` : ' · todos con producto ✅') : 'ningún producto de esta tienda'}<div class="ivDx">${invDinResumen(a.it.filter(v => v.din && v.din.length).flatMap(v => v.din.map(r => [r, v.m || v.c || String(r[2]).split(' ')[0], v.d, v.est !== 'ok'])))}</div>${md.length ? '<br>📅 Días de descuento: ' + md.map(r => `<span${r[1] === h ? ' class="hoy"' : ''}>${esc(invDiaTxt(r[1], r[1]))} ${esc(r[3])}${r[2] ? ' (' + esc(r[2]) + ')' : ''}${r[1] === h ? ' · ¡HOY!' : ''}</span>`).join(' · ') : ''}</div>`; })()}
@@ -1266,6 +1297,41 @@ function invDetalle(cod) {
     <details class="ivG g-ok" id="ivOk" open><summary><h4>✅ Con inventario <small>${ok.length}</small></h4> <span class="lnk">ocultar / mostrar</span></summary>${ok.map(filaH).join('')}</details>
     ${grupo('bajo', it.filter(v => v.est === 'bajo'))}${grupo('neg', it.filter(v => v.est === 'neg'))}${grupo('agot', it.filter(v => v.est === 'agot'))}${grupo('noap', it.filter(v => v.est === 'noap'))}`;
   $('#ivDs').onclick = async () => { const t = invTextoPunto(a); try { await navigator.clipboard.writeText(t); toast('✔ Copiado', 2500); } catch (e) { avisar(t); } };
+  $('#ivHab').onclick = () => { if (window.__hablando) { pararLargo(); return; } hablarLargo(invTextoVoz(a), '#ivHab'); };   // 23-oct: audio para quien no ve; v2 por trozos
+}
+function trozosVoz(t, max = 180) {                       // frases cortas: Chrome/Android no lee bien textos largos
+  const out = []; for (const fr of String(t).split(/(?<=[.!?])\s+/)) { let f = fr.trim(); if (!f) continue;
+    while (f.length > max) { let k = f.lastIndexOf(', ', max); if (k < 40) k = f.lastIndexOf(' ', max); if (k < 40) k = max; out.push(f.slice(0, k + 1).trim()); f = f.slice(k + 1).trim(); }
+    if (f) out.push(f); }
+  return out;
+}
+function vozEs() { try { const V = speechSynthesis.getVoices(); return V.find(v => /^es[-_]?(CO|419|MX|US|ES)/i.test(v.lang)) || V.find(v => /^es/i.test(v.lang)) || null; } catch (e) { return null; } }
+function pararLargo() { window.__hablando = false; try { speechSynthesis.cancel(); } catch (e) { } if (window.__vozTimer) { clearInterval(window.__vozTimer); window.__vozTimer = null; } document.querySelectorAll('[data-voz]').forEach(b => { b.textContent = '🔊 Escuchar'; b.removeAttribute('data-voz'); }); }
+function hablarLargo(t, selBtn) {
+  if (!window.speechSynthesis) { toast('Este celular no puede leer en voz alta'); return; }
+  pararLargo(); const b = selBtn ? $(selBtn) : null; if (b) { b.setAttribute('data-voz', '1'); b.textContent = '⏹ Parar'; }
+  const T = trozosVoz(t); let i = 0; window.__hablando = true;
+  const voz = vozEs();
+  const sig = () => { if (!window.__hablando) return; if (i >= T.length) { pararLargo(); return; }
+    const u = new SpeechSynthesisUtterance(T[i]); u.lang = (voz && voz.lang) || 'es-CO'; if (voz) u.voice = voz; u.rate = 0.95; u.pitch = 1;
+    u.onend = () => { i++; if (b) b.textContent = '⏹ Parar · ' + Math.min(100, Math.round(i / T.length * 100)) + '%'; setTimeout(sig, 60); };
+    u.onerror = e => { if (e && e.error === 'interrupted' || e && e.error === 'canceled') return; i++; setTimeout(sig, 100); };
+    try { speechSynthesis.speak(u); } catch (e) { pararLargo(); toast('Este celular no puede leer en voz alta'); } };
+  setTimeout(sig, 150);                                   // tras cancel() hay que esperar un poco o Android se traga la primera frase
+  window.__vozTimer = setInterval(() => { try { if (window.__hablando && speechSynthesis.paused) speechSynthesis.resume(); } catch (e) { } }, 5000);
+}
+if (window.speechSynthesis) { try { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices(); } catch (e) { } }
+function invTextoVoz(a) {                               // texto para leer en voz alta: sin emojis ni símbolos, con pausas
+  const num = v => Math.round(v).toLocaleString('es-CO'), nom = v => String(v.d || '').replace(/\s+/g, ' ').trim();
+  const tienda = bonito(pdv(a.cod)[0]), cad = bonito(a.cad).replace('Grupo Exito', 'Éxito').replace('Olimpica', 'Olímpica');
+  const ok = a.it.filter(v => v.est === 'ok').sort((x, y) => y.q - x.q), bajo = a.it.filter(v => v.est === 'bajo'), agot = a.it.filter(v => v.est === 'agot'), noap = a.it.filter(v => v.est === 'noap'), neg = a.it.filter(v => v.est === 'neg');
+  const L = [`Inventario de ${tienda}, ${cad}, del ${invFecha(a.f)}.`, `En esta tienda hay ${num(a.unid)} unidades de ${a.skus} productos Haleon. Surtido del ${invPct(a.surt)}.`];
+  if (agot.length) L.push(`Agotados, ${agot.length}: ` + agot.map(v => nom(v) + (v.cedi && v.cedi.reduce((s, x) => s + x[1], 0) > 0 ? ', hay ' + num(v.cedi.reduce((s, x) => s + x[1], 0)) + ' en el CEDI' : '')).join('. ') + '.');
+  if (bajo.length) L.push(`Por agotarse, ${bajo.length}: ` + bajo.map(v => nom(v) + ', quedan ' + num(v.q)).join('. ') + '.');
+  if (noap.length) L.push(`No aparecen en el reporte de la cadena, ${noap.length}: ` + noap.map(nom).join('. ') + '.');
+  if (neg.length) L.push(`Con error de inventario, ${neg.length}: ` + neg.map(nom).join('. ') + '.');
+  L.push(ok.length ? `Con inventario, ${ok.length} productos: ` + ok.map(v => nom(v) + ', ' + num(v.q)).join('. ') + '.' : 'Ningún producto con inventario.');
+  return L.join(' ');
 }
 function invEventos() {
   const on = (id, f) => { const b = $('#' + id); if (b) b.onclick = f; };
