@@ -1310,14 +1310,16 @@ function pararLargo() { window.__hablando = false; try { speechSynthesis.cancel(
 function hablarLargo(t, selBtn) {
   if (!window.speechSynthesis) { toast('Este celular no puede leer en voz alta'); return; }
   pararLargo(); const b = selBtn ? $(selBtn) : null; if (b) { b.setAttribute('data-voz', '1'); b.textContent = '⏹ Parar'; }
-  const T = trozosVoz(t); let i = 0; window.__hablando = true;
+  const T = trozosVoz(t); let i = 0; const rep = {}; window.__hablando = true;
   const voz = vozEs();
   const sig = () => { if (!window.__hablando) return; if (i >= T.length) { pararLargo(); return; }
     const u = new SpeechSynthesisUtterance(T[i]); u.lang = (voz && voz.lang) || 'es-CO'; if (voz) u.voice = voz; u.rate = 0.95; u.pitch = 1;
-    u.onend = () => { i++; if (b) b.textContent = '⏹ Parar · ' + Math.min(100, Math.round(i / T.length * 100)) + '%'; setTimeout(sig, 60); };
+    const t0 = Date.now();
+    u.onend = () => { if (Date.now() - t0 < 300 && T[i].length > 12 && (rep[i] = (rep[i] || 0) + 1) <= 2) { setTimeout(sig, 250); return; }   // no sonó (Android se la tragó): repetir
+      i++; if (b) b.textContent = '⏹ Parar · ' + Math.min(100, Math.round(i / T.length * 100)) + '%'; setTimeout(sig, 60); };
     u.onerror = e => { if (e && e.error === 'interrupted' || e && e.error === 'canceled') return; i++; setTimeout(sig, 100); };
     try { speechSynthesis.speak(u); } catch (e) { pararLargo(); toast('Este celular no puede leer en voz alta'); } };
-  setTimeout(sig, 150);                                   // tras cancel() hay que esperar un poco o Android se traga la primera frase
+  setTimeout(sig, 400);                                   // tras cancel() hay que esperar o Android se traga la primera frase (v5: 400 ms + repetición si no sonó)
   window.__vozTimer = setInterval(() => { try { if (window.__hablando && speechSynthesis.paused) speechSynthesis.resume(); } catch (e) { } }, 5000);
 }
 if (window.speechSynthesis) { try { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices(); } catch (e) { } }
