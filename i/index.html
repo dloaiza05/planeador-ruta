@@ -748,6 +748,17 @@ body{background:var(--bg)}#vence{max-width:1180px;margin:10px auto 0;padding:9px
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="modal"><div class="box" id="mbox" role="dialog" aria-modal="true"></div></div>
 <script>
+// 23-oct-2026 (Claude): si el celular cargó esta página desde su caché y en GitHub ya hay una versión más nueva, recargar sola.
+(async () => { try {
+  if (!/^https?:/.test(location.protocol) || /localhost|127\.0\.0\.1/.test(location.host)) return;
+  const nav = performance.getEntriesByType('navigation')[0], K = 'visor-version';
+  const r = await fetch(location.pathname, { method: 'HEAD', cache: 'no-store' }); const lm = r.headers.get('last-modified') || r.headers.get('etag'); if (!lm) return;
+  const prev = localStorage.getItem(K), fresca = !nav || nav.transferSize > 0;
+  if (fresca || !prev) { localStorage.setItem(K, lm); return; }
+  if (prev !== lm) { localStorage.setItem(K, lm); location.reload(); }
+} catch (e) { } })();
+</script>
+<script>
 window.__VISOR = 1; const VISOR_PUB = {"key_ops": ["verify"], "ext": true, "kty": "EC", "x": "9m_qmv7brF34K4tDzWUrm_u2D0IiC5eg41OnzOl8emk", "y": "RnuWNRhfbjKoVZBYfcmKEvmsf286zGKtUqPYf3U-ceY", "crv": "P-256"};
 function dialogo(html, botones) {
   return new Promise(res => {
@@ -1310,13 +1321,13 @@ function pararLargo() { window.__hablando = false; try { speechSynthesis.cancel(
 function hablarLargo(t, selBtn) {
   if (!window.speechSynthesis) { toast('Este celular no puede leer en voz alta'); return; }
   pararLargo(); const b = selBtn ? $(selBtn) : null; if (b) { b.setAttribute('data-voz', '1'); b.textContent = '⏹ Parar'; }
-  const T = trozosVoz(t); let i = 0; const rep = {}; window.__hablando = true;
+  const T = ['Atención.', ...trozosVoz(t)]; let i = 0; const rep = {}; window.__hablando = true;   // v6: frase de calentamiento (si Android se traga una, que sea esta)
   const voz = vozEs();
   const sig = () => { if (!window.__hablando) return; if (i >= T.length) { pararLargo(); return; }
     const u = new SpeechSynthesisUtterance(T[i]); u.lang = (voz && voz.lang) || 'es-CO'; if (voz) u.voice = voz; u.rate = 0.95; u.pitch = 1;
     const t0 = Date.now();
     u.onend = () => { if (Date.now() - t0 < 300 && T[i].length > 12 && (rep[i] = (rep[i] || 0) + 1) <= 2) { setTimeout(sig, 250); return; }   // no sonó (Android se la tragó): repetir
-      i++; if (b) b.textContent = '⏹ Parar · ' + Math.min(100, Math.round(i / T.length * 100)) + '%'; setTimeout(sig, 60); };
+      i++; if (b) b.textContent = '⏹ Parar · ' + Math.min(100, Math.round(Math.max(0, i - 1) / (T.length - 1) * 100)) + '%'; setTimeout(sig, 60); };
     u.onerror = e => { if (e && e.error === 'interrupted' || e && e.error === 'canceled') return; i++; setTimeout(sig, 100); };
     try { speechSynthesis.speak(u); } catch (e) { pararLargo(); toast('Este celular no puede leer en voz alta'); } };
   setTimeout(sig, 400);                                   // tras cancel() hay que esperar o Android se traga la primera frase (v5: 400 ms + repetición si no sonó)
@@ -1563,7 +1574,7 @@ async function invArmarEnlace(u) {                      // enlace corto, solo le
   const exp = Date.now() + INV_HORAS * 36e5, us = Object.keys(D.users).sort(), ui = u ? us.indexOf(u) + 1 : 0;
   const base = /^https?:\/\/[^/]*github\.io/.test(location.href) ? location.origin + location.pathname.replace(/[^/]*$/, '') : 'https://dloaiza05.github.io/planeador-ruta/';
   const T = invPuntosDe(u).filter(c => D.pdv[c]), n = T.length, nd = T.filter(c => invDatos().pts[c]).length;   // todos sus puntos (no solo los que tienen archivo del CEN)
-  return { nd, url: base + 'i/#' + COORD.invVista.id + COORD.invVista.k + ui.toString(36).padStart(2, '0') + Math.ceil(exp / 60000).toString(36), exp, n };
+  return { nd, url: base + 'i/?v=' + Date.now().toString(36) + '#' + COORD.invVista.id + COORD.invVista.k + ui.toString(36).padStart(2, '0') + Math.ceil(exp / 60000).toString(36), exp, n };
 }
 async function invEnlace() {
   const u = ADMIN ? invPer : U;
