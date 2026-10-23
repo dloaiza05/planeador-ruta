@@ -1321,16 +1321,30 @@ function hablarLargo(t, selBtn) {
   window.__vozTimer = setInterval(() => { try { if (window.__hablando && speechSynthesis.paused) speechSynthesis.resume(); } catch (e) { } }, 5000);
 }
 if (window.speechSynthesis) { try { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices(); } catch (e) { } }
-function invTextoVoz(a) {                               // texto para leer en voz alta: sin emojis ni símbolos, con pausas
-  const num = v => Math.round(v).toLocaleString('es-CO'), nom = v => String(v.d || '').replace(/\s+/g, ' ').trim();
-  const tienda = bonito(pdv(a.cod)[0]), cad = bonito(a.cad).replace('Grupo Exito', 'Éxito').replace('Olimpica', 'Olímpica');
-  const ok = a.it.filter(v => v.est === 'ok').sort((x, y) => y.q - x.q), bajo = a.it.filter(v => v.est === 'bajo'), agot = a.it.filter(v => v.est === 'agot'), noap = a.it.filter(v => v.est === 'noap'), neg = a.it.filter(v => v.est === 'neg');
-  const L = [`Inventario de ${tienda}, ${cad}, del ${invFecha(a.f)}.`, `En esta tienda hay ${num(a.unid)} unidades de ${a.skus} productos Haleon. Surtido del ${invPct(a.surt)}.`];
-  if (agot.length) L.push(`Agotados, ${agot.length}: ` + agot.map(v => nom(v) + (v.cedi && v.cedi.reduce((s, x) => s + x[1], 0) > 0 ? ', hay ' + num(v.cedi.reduce((s, x) => s + x[1], 0)) + ' en el CEDI' : '')).join('. ') + '.');
-  if (bajo.length) L.push(`Por agotarse, ${bajo.length}: ` + bajo.map(v => nom(v) + ', quedan ' + num(v.q)).join('. ') + '.');
-  if (noap.length) L.push(`No aparecen en el reporte de la cadena, ${noap.length}: ` + noap.map(nom).join('. ') + '.');
-  if (neg.length) L.push(`Con error de inventario, ${neg.length}: ` + neg.map(nom).join('. ') + '.');
-  L.push(ok.length ? `Con inventario, ${ok.length} productos: ` + ok.map(v => nom(v) + ', ' + num(v.q)).join('. ') + '.' : 'Ningún producto con inventario.');
+function invNombreVoz(d) {                              // nombre de la referencia limpio para leerlo en voz alta
+  let s = String(d || '').replace(/Ð/g, 'Ñ').replace(/\s+/g, ' ').trim();
+  s = s.replace(/\b(CAJ|CAJA|BLI|BLIS|BLISTER|DISPLAY|DISP|EST|ESTUCHE|PQT|PAQ|PACK)\b\.?/gi, ' ');
+  s = s.replace(/\b1\s*U\b\.?/gi, ' ').replace(/\b(\d+)\s*U\b\.?/gi, '$1 unidades');
+  s = s.replace(/\bx\s*(\d+)\s*(tabs?|tabletas?)\b\.?/gi, 'por $1 tabletas').replace(/\bx\s*(\d+)\s*(und|unds|unid|unidades?)\b\.?/gi, 'por $1 unidades')
+       .replace(/\bx\s*(\d+)\s*(ml)\b\.?/gi, 'por $1 mililitros').replace(/\bx\s*(\d+)\s*(gr?|grs|gramos)\b\.?/gi, 'por $1 gramos').replace(/\bx\s*(\d+)\s*(sup|supositorios?)\b\.?/gi, 'por $1 supositorios')
+       .replace(/\bx\s*(\d+)\b/gi, 'por $1').replace(/\b(\d+)\s*(tabs?|tab)\b\.?/gi, '$1 tabletas').replace(/\b(\d+)\s*(ml)\b\.?/gi, '$1 mililitros').replace(/\b(\d+)\s*(gr?|grs)\b\.?/gi, '$1 gramos');
+  s = s.replace(/\b(TAB|TABS)\b\.?/g, 'tabletas').replace(/\b(UND|UNDS|UNID)\b\.?/g, 'unidades').replace(/\bML\b\.?/g, 'mililitros').replace(/\bGR\b\.?/g, 'gramos').replace(/\bSUP\b\.?/g, 'supositorios').replace(/\bVIT\b\.?/g, 'vitamina').replace(/\bCPS\b\.?/g, 'cápsulas');
+  s = s.replace(/\s*-\s*/g, ' ').replace(/[()\[\]]/g, ' ').replace(/\s+/g, ' ').replace(/\s+,/g, ',').trim();
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+function invTextoVoz(a) {                               // texto para leer en voz alta (Diego 23-oct): Inventario, punto. Referencia: tanto en punto, tanto en CEDI.
+  const num = v => Math.round(v || 0).toLocaleString('es-CO'), cediDe = v => v.cedi ? v.cedi.reduce((s, x) => s + x[1], 0) : null;
+  const tienda = bonito(pdv(a.cod)[0]).replace(/^Exito /, 'Éxito ');
+  const enP = v => v.est === 'agot' ? 'cero en punto' : v.est === 'noap' ? 'no aparece en punto' : num(v.q) + ' en punto';
+  const enC = v => { const c = cediDe(v); return c == null ? '' : ', ' + (c > 0 ? num(c) : 'cero') + ' en CEDI'; };
+  const fila = v => `${invNombreVoz(v.d)}: ${enP(v)}${enC(v)}.`;
+  const agot = a.it.filter(v => v.est === 'agot'), bajo = a.it.filter(v => v.est === 'bajo'), noap = a.it.filter(v => v.est === 'noap'), neg = a.it.filter(v => v.est === 'neg'), ok = a.it.filter(v => v.est === 'ok').sort((x, y) => y.q - x.q);
+  const L = [`Inventario, ${tienda}. Del ${invFecha(a.f)}. ${a.skus} referencias con inventario, ${num(a.unid)} unidades.`];
+  if (agot.length) L.push(`Agotados, ${agot.length}.`, ...agot.map(fila));
+  if (bajo.length) L.push(`Por agotarse, ${bajo.length}.`, ...bajo.map(fila));
+  if (noap.length) L.push(`No aparecen en el reporte, ${noap.length}.`, ...noap.map(fila));
+  if (neg.length) L.push(`Con error de inventario, ${neg.length}.`, ...neg.map(fila));
+  L.push(`Con inventario, ${ok.length}.`, ...ok.map(fila));
   return L.join(' ');
 }
 function invEventos() {
