@@ -960,14 +960,23 @@ function invWeb(e, tienda) {
   return { pr, pl, dto, promo: promo || [], plu, ref, disp, url, img, antes, canal: invCanal(promo, dto), tienda };
 }
 const invPesos = n => '$' + Math.round(n).toLocaleString('es-CO');
+function invPvpHtml(v, cad, w) {                         // 💲 PVP sugerido por Haleon (Diego 26-oct: listado del KAM Juan Diego, Grupo Éxito)
+  const P = ((D.inv || {}).pvp || {})[cad]; if (!P || !P.p) return '';
+  let x = P.p[String(v.e).replace(/^0+/, '')];
+  if (!x) for (const [k, y] of Object.entries(P.p)) if (invFam(k) === invFam(v.e)) { x = y; break; }   // el otro código del mismo producto
+  if (!x) return '';
+  const [pvp, plu, est] = x; let cmp = '';
+  if (w && w.pr) { const d = Math.round((w.pr - pvp) * 100 / pvp); cmp = d > 2 ? ` · la web está <b>${d}% por encima</b>` : d < -2 ? ` · la web está ${-d}% por debajo` : ' · la web coincide'; }
+  return `<p class="ivWb">💲 <b>PVP sugerido Haleon:</b> ${invPesos(pvp)}${plu ? ' · PLU ' + esc(plu) : ''}${est && est !== 'ACTIVO' ? ' · <b>' + esc(est.toLowerCase()) + '</b>' : ''}${cmp}</p>`;
+}
 function invWebHtml(v, cod, cad) {                         // una línea por producto + aviso si no cuadra con la dinámica
-  const w = invWeb(v.e, invTiendaWeb(cad, cod)); if (!w) return '';
+  const w = invWeb(v.e, invTiendaWeb(cad, cod)), pv = invPvpHtml(v, cad, w); if (!w) return pv;   // 26-oct: PVP sugerido Haleon aunque no haya precio web
   const pr = (w.promo || []).map(invPromoTxt).filter(Boolean)[0];
   let h = `<p class="ivWb">🛒 <b>Web ${esc(WEB_T[w.tienda])}:</b> ${invPesos(w.pr)}${w.dto ? ` <s>${invPesos(w.pl)}</s> <em>−${w.dto}%</em>` : ''}${pr ? ' · ' + esc(pr) : ''}${w.canal && w.dto ? ` · ${w.canal[0]} ${esc(w.canal[1])}` : ''}${w.plu ? ' · PLU ' + esc(w.plu) : ''}${w.disp ? '' : ' · <b>agotado en la web</b>'}${w.antes ? ` · <b>cambió</b> (antes ${invPesos(w.antes.pr)}${w.antes.dto ? ' −' + w.antes.dto + '%' : ''})` : ''} · <a href="${esc(w.url)}" target="_blank" rel="noopener noreferrer">ver ↗</a></p>`;
   const hoy = hoyISO(), dh = (v.din || []).filter(r => r[3] != null && r[4] <= hoy && (r[5] || r[4]) >= hoy);
   if (dh.length) { const pc = Math.max(...dh.map(r => +r[3])); if (Math.abs((w.dto || 0) - pc) > 2) h += `<p class="ivWb al">⚠ Hoy la dinámica dice <b>${pc}%</b> y la web de ${esc(WEB_T[w.tienda])} muestra ${w.dto ? '<b>' + w.dto + '%</b>' : '<b>sin descuento</b>'}${/rappi|tienda/i.test(dh[0][6] || '') ? ' (la dinámica es «' + esc(dh[0][6]) + '»: puede no verse en la página)' : ''}. 👉 Revísalo en la visita.</p>`; }
   else if (w.dto >= 5 && !(v.din || []).length && invDin().p.some(r => r[0] === cad)) h += `<p class="ivWb inf">ℹ La web tiene −${w.dto}% y no está en tus dinámicas del mes.</p>`;
-  return h;
+  return pv + h;
 }
 function invWebEjecutivo(L) {                               // 📊 recuadro plegable: lo que tiene descuento hoy en la web de tus cadenas
   const W = (D.inv || {}).web; if (!W) return '';
