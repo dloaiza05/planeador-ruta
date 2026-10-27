@@ -1163,7 +1163,7 @@ function pintarInv() {
     <input id="ivQ" type="search" placeholder="Buscar punto o producto…" value="${esc(invQ)}">
     <span class="sep"></span>
     ${ADMIN && !VISOR ? '<button class="b2" id="ivS" title="Subir los Excel INVRPT que descargas del CEN: puedes escoger varios a la vez (Éxito y Olímpica)">📂 Subir inventario</button>' : ''}${ADMIN && !VISOR ? '<button class="b2" id="ivDS" title="Subir el Excel de dinámicas comerciales y descuentos de las cadenas">🏷 Dinámicas</button>' : ''}${ADMIN && !VISOR && invLocal() ? '<button class="b2" id="ivL" title="Borra de este computador lo que subiste y vuelve al inventario publicado">🗑 Limpiar lo subido</button>' : ''}
-    ${ADMIN && !VISOR && COORD && COORD.invVista ? '<button class="b1" id="ivE" title="Enlace que solo muestra el inventario y se vence en 10 horas">🔗 Enlace 10 h</button>' : ''}${VISOR ? '' : '<button class="b2" id="ivSh">📤 Compartir</button>'}${ADMIN && !VISOR ? '<button class="b2" id="ivX">⬇ Excel</button>' : ''}</div>`;
+    ${ADMIN && !VISOR && COORD && COORD.invVista ? '<button class="b1" id="ivE" title="Enlace fijo del inventario: no vence y se actualiza solo">🔗 Enlace del equipo</button>' : ''}${VISOR ? '' : '<button class="b2" id="ivSh">📤 Compartir</button>'}${ADMIN && !VISOR ? '<button class="b2" id="ivX">⬇ Excel</button>' : ''}</div>`;
   if (sinPlanDia && todos.length) h += `<div class="ivAv">📅 ${u ? esc(bonito((D.users[u] || {}).nombre || u)) + ' no tiene' : 'No hay'} visitas planeadas el ${esc(diaTxt(+invDia))}: se muestran todos ${u ? 'sus' : 'los'} puntos.</div>`;
   if (!todos.length && invDia) {
     h += `<div class="cvCar">${Object.keys(vis).length ? 'Los puntos que se visitan (' + esc(diaTxt(+invDia)) + ')' + ' no tienen archivo de inventario todavía' + (sinArchivo ? ' (' + pl(sinArchivo, 'visita', 'visitas') + ')' : '') + '.' : 'No hay visitas agendadas (' + esc(diaTxt(+invDia)) + ').'}<br><button class="b2" id="ivTodo">Ver todos los puntos</button></div>`;
@@ -1326,7 +1326,7 @@ function invDetalle(cod) {
       const ORD = { prio: ['Prioridad', null], marca: ['Marca', (x, y) => String(x.m || x.c).localeCompare(String(y.m || y.c)) || x.d.localeCompare(y.d)], nom: ['Nombre (A-Z)', (x, y) => x.d.localeCompare(y.d)],
         mas: ['Más unidades', (x, y) => (y.q || 0) - (x.q || 0)], menos: ['Menos unidades', (x, y) => (x.q || 0) - (y.q || 0) || INV_ORD[x.est] - INV_ORD[y.est]], cedi: ['Más en CEDI', (x, y) => ceQ(y) - ceQ(x)],
         rot: ['Se agota primero', (x, y) => ((x.rot && x.rot[1] >= 0) ? x.rot[1] : 1e9) - ((y.rot && y.rot[1] >= 0) ? y.rot[1] : 1e9) || INV_ORD[x.est] - INV_ORD[y.est]] };
-      let ver = 'todo', ord = 'prio', mar = ''; try { ver = localStorage.getItem('inv-ver') || 'todo'; ord = localStorage.getItem('inv-ord') || 'prio'; mar = localStorage.getItem('inv-marca') || ''; } catch (e) { }
+      const F0 = (window.__ivF && window.__ivF.cod === cod) ? window.__ivF : (window.__ivF = { cod, ver: 'todo', ord: 'prio', mar: '' }); let ver = F0.ver, ord = F0.ord, mar = F0.mar;   // cada tienda arranca en Todo (Diego 27-oct)
       const marDe = v => String(v.m || v.c || 'Otros'), MAR = {}; for (const v of it) MAR[marDe(v)] = (MAR[marDe(v)] || 0) + 1; if (!MAR[mar]) mar = '';
       if (!VER.some(x => x[0] === ver)) ver = 'todo'; if (!ORD[ord]) ord = 'prio';
       const bar = `<div class="ivBar" id="ivBar"><div class="ivVer">${VER.map(([k, t, f]) => { const n = k === 'todo' ? it.length : it.filter(f).length; return n || k === ver ? `<button type="button" class="ivVb${k === ver ? ' on' : ''}" data-ivver="${k}">${t} <small>${n}</small></button>` : ''; }).join('')}</div>
@@ -1337,9 +1337,9 @@ function invDetalle(cod) {
       const fl = X => X.map(v => `<div class="ivEt t-${v.est}">${INV_EST[v.est].i} ${INV_EST[v.est].t}</div>` + filaH(v)).join(''), L1 = mar ? L.filter(v => marDe(v) === mar) : L, L2 = mar ? L.filter(v => marDe(v) !== mar) : [];
       return bar + `<div class="ivG g-sel"><h4>${mar ? esc(mar) + ' · ' : ''}${vv[1]} <small>${L1.length}</small> <span class="ivGd">· ${ORD[ord][0].toLowerCase()}</span></h4>${L1.length ? fl(L1) : '<p class="ivGd">Ningún producto en este filtro.</p>'}</div>` +
         (L2.length ? `<details class="ivG g-otr"><summary><h4>Otras marcas <small>${L2.length}</small></h4> <span class="lnk">ver / ocultar</span></summary>${fl(L2)}</details>` : ''); })()}`;
-  el.querySelectorAll('[data-ivver]').forEach(b => b.onclick = () => { try { localStorage.setItem('inv-ver', b.dataset.ivver); } catch (e) { } const y = $('#ivBar').getBoundingClientRect().top; invDetalle(cod); const n = $('#ivBar'); if (n) window.scrollBy(0, n.getBoundingClientRect().top - y); });
-  const ms = $('#ivMarSel'); if (ms) ms.onchange = () => { try { localStorage.setItem('inv-marca', ms.value); } catch (e) { } const y = $('#ivBar').getBoundingClientRect().top; invDetalle(cod); const n = $('#ivBar'); if (n) window.scrollBy(0, n.getBoundingClientRect().top - y); };
-  const os = $('#ivOrdSel'); if (os) os.onchange = () => { try { localStorage.setItem('inv-ord', os.value); } catch (e) { } const y = $('#ivBar').getBoundingClientRect().top; invDetalle(cod); const n = $('#ivBar'); if (n) window.scrollBy(0, n.getBoundingClientRect().top - y); };
+  el.querySelectorAll('[data-ivver]').forEach(b => b.onclick = () => { window.__ivF.ver = b.dataset.ivver; const y = $('#ivBar').getBoundingClientRect().top; invDetalle(cod); const n = $('#ivBar'); if (n) window.scrollBy(0, n.getBoundingClientRect().top - y); });
+  const ms = $('#ivMarSel'); if (ms) ms.onchange = () => { window.__ivF.mar = ms.value; const y = $('#ivBar').getBoundingClientRect().top; invDetalle(cod); const n = $('#ivBar'); if (n) window.scrollBy(0, n.getBoundingClientRect().top - y); };
+  const os = $('#ivOrdSel'); if (os) os.onchange = () => { window.__ivF.ord = os.value; const y = $('#ivBar').getBoundingClientRect().top; invDetalle(cod); const n = $('#ivBar'); if (n) window.scrollBy(0, n.getBoundingClientRect().top - y); };
   $('#ivDs').onclick = async () => { const t = invTextoPunto(a); try { await navigator.clipboard.writeText(t); toast('✔ Copiado', 2500); } catch (e) { avisar(t); } };
   $('#ivHab').onclick = () => { if (window.__hablando) { pararLargo(); return; } hablarLargo(invTextoVoz(a), '#ivHab'); };   // 23-oct: audio para quien no ve; v2 por trozos
 }
@@ -1614,10 +1614,10 @@ async function invEnlace() {
   let r; try { toast('Armando el enlace…', 6000); r = await invArmarEnlace(u); } catch (e) { avisar('No pude armar el enlace: ' + e.message); return; }
   $('#toast').style.display = 'none';
   const vence = new Date(r.exp).toLocaleString('es-CO', { weekday: 'long', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
-  const msg = `📦 *Inventario Haleon${u ? ' · ' + bonito(D.users[u].nombre).split(' ')[0] : ' · equipo'}*\nAquí está el inventario de ${u ? 'tus puntos' : 'nuestros puntos'}: ${pl(r.n, 'punto', 'puntos')}, ${r.nd} con inventario del CEN (los demás salen con sus dinámicas). Toca tu punto para ver qué hay, qué falta y si hay en el CEDI.\n${r.url}\n⏳ El enlace vence el ${vence}.`;
+  const msg = `📦 *Inventario Haleon${u ? ' · ' + bonito(D.users[u].nombre).split(' ')[0] : ' · equipo'}*\nAquí está el inventario de ${u ? 'tus puntos' : 'nuestros puntos'}: ${pl(r.n, 'punto', 'puntos')}, ${r.nd} con inventario del CEN (los demás salen con sus dinámicas). Toca tu punto para ver qué hay, qué falta y si hay en el CEDI.\n${r.url}\n♻ Es el mismo enlace de siempre: se actualiza solo cada vez que hay inventario nuevo.`;
   anclar(null); $('#modal').style.display = 'flex';
-  $('#mbox').innerHTML = `<h3>🔗 Enlace temporal de inventario</h3><p class="mu" style="margin:0 0 8px">${u ? esc(bonito(D.users[u].nombre)) + ' · solo sus puntos, con todo su inventario' : 'Todo el equipo · cada punto con lo que hay que revisar'} · ${pl(r.n, 'punto', 'puntos')}</p>
-    <p>⏳ Vence el <b>${esc(vence)}</b> (${INV_HORAS} horas). Se ve igual a esta sección (puntos, ficha de cada punto, filtros), en solo lectura: no abre el planeador, el panel ni los convenios. Si alguien cambia el enlace, no abre. Muestra el inventario publicado (${esc(invDatos().generado || '')}).</p>
+  $('#mbox').innerHTML = `<h3>🔗 Enlace del inventario</h3><p class="mu" style="margin:0 0 8px">${u ? esc(bonito(D.users[u].nombre)) + ' · solo sus puntos, con todo su inventario' : 'Todo el equipo · cada punto con lo que hay que revisar'} · ${pl(r.n, 'punto', 'puntos')}</p>
+    <p>♻ <b>Enlace fijo:</b> no vence y se actualiza solo con cada inventario publicado (los enlaces que ya repartiste también). Se ve igual a esta sección (puntos, ficha de cada punto, filtros), en solo lectura: no abre el planeador, el panel ni los convenios. Si alguien cambia el enlace, no abre. Muestra el inventario publicado (${esc(invDatos().generado || '')}).</p>
     <div class="enAcc"><button class="b1" id="ieM">📋 Copiar mensaje con el enlace<small>para pegar en WhatsApp</small></button><button class="b2" id="ieU">🔗 Copiar solo el enlace<small>enlace corto (${r.url.length} caracteres)</small></button><button class="b2" id="ieA">👁 Abrir para revisar<small>así lo verán</small></button></div>
     <div class="acts"><span></span><button class="b2" id="ieC">Cerrar</button></div>`;
   const copiar = async t => { try { await navigator.clipboard.writeText(t); toast('✔ Copiado', 2500); } catch (e) { avisar(t); } };
@@ -1764,7 +1764,7 @@ async function mesTabla() {                             // registro de todos los
     const h = location.hash.slice(1).replace(/[^A-Za-z0-9]/g, '');
     if (h.length < 26) return falla('Enlace incompleto');
     const id = h.slice(0, 6), sec = h.slice(6, 22), ui = parseInt(h.slice(22, 24), 36), exp = parseInt(h.slice(24), 36) * 60000;
-    if (!exp || Date.now() > exp) return falla('Este enlace venció');
+    // 27-oct: el enlace ya no vence (Diego): siempre muestra el último inventario publicado
     const r = await fetch(id + '.json', { cache: 'no-store' }); if (!r.ok) return falla('Este enlace ya no está disponible');
     const A = await r.json(), b = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
     const kraw = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sec))).slice(0, 16);
@@ -1776,9 +1776,8 @@ async function mesTabla() {                             // registro de todos los
     if (ui > 0 && !u) return falla('Este enlace no es válido');
     ADMIN = !u; U = u || null;                                          // equipo: escoge la persona · una persona: solo sus puntos
     const vence = new Date(exp).toLocaleString('es-CO', { weekday: 'long', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
-    document.getElementById('vence').innerHTML = `⏳ Enlace temporal de solo lectura · vence el <b>${esc(vence)}</b>${u ? ' · ' + esc(bonito(D.users[u].nombre)) : ''}`;
+    document.getElementById('vence').innerHTML = `📦 Inventario del equipo · solo lectura · <b>se actualiza solo</b> con cada inventario publicado${u ? ' · ' + esc(bonito(D.users[u].nombre)) : ''}`;
     pintarInv();
-    setInterval(() => { if (Date.now() > exp) falla('Este enlace venció'); }, 60000);
   } catch (e) { falla('No se pudo abrir el enlace'); }
 })();
 
