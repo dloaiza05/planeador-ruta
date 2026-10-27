@@ -301,7 +301,7 @@ svg.cnI{width:15px;height:15px;vertical-align:-3px;flex:0 0 auto;margin-right:2p
 #invSec details.ivWeb summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}#invSec details.ivWeb summary h4{margin:0}#invSec details.ivWeb s{color:#64748b}
 #invSec .ivCd{margin:2px 0 0;font-size:11.5px;color:var(--soft)}
 #invSec .ivC{max-width:120px}#invSec .ivC small{white-space:normal;line-height:1.15;text-align:center}
-#invSec .tpB{font-style:normal;display:inline-block;margin:0 0 0 6px;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;background:#eef2ff;color:#3730a3;vertical-align:middle}#invSec .tpB.s2{background:#fef3c7;color:#92400e}#invSec .tpB.s1{background:#fff7ed;color:#9a3412}#invSec .tpB.no{opacity:.55}#invSec .tpRs{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:8px 10px;font-size:13px;margin:4px 0 6px}#invSec .tpRs small{color:var(--muted)}#invSec .ivRs{background:#f7f9fc;border-radius:10px;padding:8px 10px;font-size:13px;margin:4px 0 6px}
+#invSec .tpB{font-style:normal;display:inline-block;margin:0 0 0 6px;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;background:#eef2ff;color:#3730a3;vertical-align:middle}#invSec .tpB.s2{background:#fef3c7;color:#92400e}#invSec .tpB.s1{background:#fff7ed;color:#9a3412}#invSec .tpB.no{opacity:.55}#invSec .tpQ{margin-left:6px;font-size:11px;border:1px solid #fde68a;background:#fffbeb;color:#92400e;border-radius:999px;padding:1px 8px;cursor:pointer;vertical-align:middle}#invSec .tpQ.on{background:#fde68a}#invSec .tpS{margin:5px 0 2px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:6px;padding:6px 8px;font-size:12.5px;line-height:1.35}#invSec .tpS span{display:block;margin:1px 0;color:var(--ink,#1f2937)}#invSec .tpRs{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:8px 10px;font-size:13px;margin:4px 0 6px}#invSec .tpRs small{color:var(--muted)}#invSec .ivRs{background:#f7f9fc;border-radius:10px;padding:8px 10px;font-size:13px;margin:4px 0 6px}
 #invSec .ivGd{margin:0 0 4px;font-size:12px;color:var(--muted)}
 .ivBar{position:sticky;top:0;z-index:5;background:var(--card,#fff);padding:8px 0 6px;margin-top:10px;border-bottom:1px solid var(--line,#e5e7eb)}.ivVer{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
 .ivVb{flex:none;border:1px solid var(--line,#e5e7eb);background:#fff;border-radius:999px;padding:6px 10px;font-size:13px;white-space:nowrap;cursor:pointer}.ivVb small{opacity:.7;font-weight:700}.ivVb.on{background:#4338ca;color:#fff;border-color:#4338ca}
@@ -1050,6 +1050,25 @@ function tpInfo(cod, v) {
   let tip = String((D.pdv[cod] || [])[4] || '').trim().toUpperCase().charAt(0); if (!'ABC'.includes(tip) || !tip) tip = 'C';   // D (y vacío) se trata como C (Diego 27-oct)
   return { p: r[0], s: r[1], inf: r[2].includes(tip), tip, cat: r[3], ref: r[4], canal: smk ? 'Supermercados' : 'Droguerías autoservicio' };
 }
+
+const tpTips = () => (D && D.inv && D.inv.tpTips) || {};
+const tpCatK = t => { const c = String(t.cat + ' ' + t.ref).toUpperCase(); return /GRIPA/.test(c) ? 'gripa' : /GARGANTA|ADVITABS/.test(c) ? 'garganta' : /SCOTT|NIÑOS VIT/.test(c) ? 'scott' : /COREGA/.test(c) ? 'corega' : /ORAL|SENSODYNE|SDY/.test(c) ? 'oral' : /SEXUAL|TODAY/.test(c) ? 'sexual' : /MULTI|CENTRUM/.test(c) ? 'multi' : 'dolor'; };
+function tpAccion(cod, v, t, ce, it) {   // una sola sugerencia, según el inventario del día
+  const pr = t.s === 2 ? 'infaltable ⭐⭐ prioridad 1' : t.s === 1 ? 'infaltable ⭐ prioridad 2' : 'infaltable de la guía';
+  const marca = String(v.m || v.c || ''), hay = (it || []).filter(x => x !== v && x.est === 'ok' && String(x.m || x.c) === marca && tpInfo(cod, x)).slice(0, 2).map(x => x.d);
+  const tip = (tpTips()[tpCatK(t)] || [])[0] || '', L = [];
+  if (!t.inf) L.push(`En un punto tipo ${t.tip} la guía no lo exige; si hay espacio, mantenlo en la zona caliente.`);
+  else if (v.est === 'noap') L.push(`🔖 Es ${pr} y no aparece codificado: pide al ejecutivo (KAM) que lo codifiquen.`);
+  else if (v.est === 'agot' || v.est === 'neg') L.push(ce > 0 ? `📦 Es ${pr} y está en cero: pídelo hoy al administrador (hay ${invNum(ce)} en el CEDI).` : (ce == null ? `📦 Es ${pr} y está en cero: pídelo hoy al administrador; si no hay, avísale al ejecutivo.` : `📣 Es ${pr} y está en cero, y tampoco hay en el CEDI: repórtalo hoy al ejecutivo.`));
+  else if (v.est === 'bajo') L.push(`🟠 Es ${pr} y se está acabando: pide reposición${ce > 0 ? ` (hay ${invNum(ce)} en el CEDI)` : ''} y déjalo de frente en la zona caliente.`);
+  else L.push(`✅ Hay producto: ${t.s ? 'es ' + pr + ', ' : ''}ubícalo en la zona caliente (120 a 160 cm, a la altura de los ojos).`);
+  if (t.inf && v.est !== 'ok' && v.est !== 'bajo' && hay.length) L.push(`Mientras llega, no dejes hueco: corre ${hay.map(esc).join(' y ')} para mantener el bloque de ${esc(marca)}.`);
+  if (v.din && v.din.length && v.est === 'ok') L.push('🏷 Tiene dinámica: llévalo también a una exhibición adicional (puesto de pago o punta) con el precio visible.');
+  if (tip) L.push('📐 ' + tip);
+  return L.map(x => `<span>${x}</span>`).join('');
+}
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.tpQ'); if (!b) return; const p = b.closest('.ivF').querySelector('.tpS'); if (p) { p.hidden = !p.hidden; b.classList.toggle('on', !p.hidden); } });
+
 const tpBadge = t => !t ? '' : `<em class="tpB${t.s === 2 ? ' s2' : t.s === 1 ? ' s1' : ''}${t.inf ? '' : ' no'}" title="Tienda Perfecta · ${esc(t.canal)} · ${esc(t.cat)} · ${esc(t.ref)}${t.inf ? ' · infaltable en punto tipo ' + t.tip : ' · no es infaltable en punto tipo ' + t.tip}">${t.s === 2 ? '⭐⭐ Prioridad 1' : t.s === 1 ? '⭐ Prioridad 2' : '🏪 Infaltable'}${t.inf ? '' : ' (no exigido aquí)'}</em>`;
 
 const INV_EST = {
@@ -1316,7 +1335,7 @@ function invDetalle(cod) {
     if (n.length < 2) return ''; const con = n.filter(k => (C.b[k][v.e] || 0) > 0);
     return con.length ? 'Por CD: ' + con.map(k => k.replace(/^(Centro de Distribución\s+)?(CEDI|CD)\s+/i, 'CD ').replace(/\s+/g, ' ') + ': ' + invNum(C.b[k][v.e])).join(' · ') : 'En ningún CD de la cadena hay'; };
   const filaH = v => { const ce = v.cedi ? v.cedi.reduce((s, x) => s + x[1], 0) : null, fr = frase(v, ce), det = cediPorNombre(v);
-    return `<div class="ivF"><div class="ivN"><b>${esc(v.d)}</b>${tpBadge(tpInfo(cod, v))}<span>${esc(v.m || v.c)} · EAN ${esc(v.e)}${v.otro ? ' (código anterior; el actual es ' + esc(v.otro) + ')' : ''}${v.cubre ? ' · en cero con este código, pero la tienda tiene ' + invNum(v.cubre) + ' con el otro código del mismo producto' : ''}${v.qa != null && v.qa !== v.q ? ' · el inventario anterior tenía ' + invNum(v.qa) : ''}${rotT(v)}</span>
+    return `<div class="ivF"><div class="ivN"><b>${esc(v.d)}</b>${tpBadge(tpInfo(cod, v))}${tpInfo(cod, v) ? `<button type="button" class="tpQ" title="Qué hacer según la Tienda Perfecta">💡 Qué hacer</button><p class="tpS" hidden>${tpAccion(cod, v, tpInfo(cod, v), ce, a.it)}</p>` : ''}<span>${esc(v.m || v.c)} · EAN ${esc(v.e)}${v.otro ? ' (código anterior; el actual es ' + esc(v.otro) + ')' : ''}${v.cubre ? ' · en cero con este código, pero la tienda tiene ' + invNum(v.cubre) + ' con el otro código del mismo producto' : ''}${v.qa != null && v.qa !== v.q ? ' · el inventario anterior tenía ' + invNum(v.qa) : ''}${rotT(v)}</span>
       ${fr ? `<p class="ivFr">${esc(fr)}</p>` : ''}${det ? `<p class="ivCd">🏬 ${esc(det)}</p>` : ''}${v.din && v.din.length ? invDinTxt(v.din).map(x => `<p class="ivDn${x.hoy ? ' hoy' : ''}${x.nv ? ' nv' : ''}">🏷 <b>${esc(x.t)}</b>${x.hoy ? ' · <b>¡HOY!</b>' : ''}</p>`).join('') + (v.est !== 'ok' ? '<p class="ivDn al">⚡ Tiene dinámica este mes y no hay producto suficiente: es prioridad.</p>' : '') : ''}${invWebHtml(v, cod, a.cad)}<i>${v.conv ? '<em class="c">⚠ marca con convenio</em>' : ''}${v.nuevo ? '<em class="r">se agotó desde el último inventario</em>' : ''}</i></div>
       <div class="ivQs">${cel('En ' + tiendaN, v.est === 'agot' ? '0' : v.est === 'noap' ? invNoap(a.cad).celda : invNum(v.q), 't-' + v.est)}${cel('En ' + cediN, ce == null ? '—' : invNum(ce))}
       ${v.acc ? `<span class="ivAcc ${v.acc[1]}">${v.acc[0]}</span>` : ''}</div></div>`; };
