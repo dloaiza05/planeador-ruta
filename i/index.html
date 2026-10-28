@@ -1850,7 +1850,7 @@ async function plantillaMes(b64, a, m, dias, DC) {         // el Excel del mes: 
 }
 async function mesCrear(a, m, reu, perf) {                // mes nuevo = el panel de hoy con el calendario en blanco
   if (typeof JSZip === 'undefined') throw new Error('necesitas internet (la primera vez)');
-  const base = JSON.parse(JSON.stringify(D)); delete base._cargado;
+  await xlsCarga(); const base = JSON.parse(JSON.stringify(D)); delete base._cargado;
   const dias = new Date(a, m, 0).getDate(), fest = festivosCO(a).filter(f => f[0] === m);
   for (const us of Object.values(base.users)) us.filas = us.filas.map(r => { const y = r.slice(); y[8] = y[9] = y[10] = null; return y; });
   const DC = base.dcols || [...Array(31).keys()].map(q => XL(22 + q));
