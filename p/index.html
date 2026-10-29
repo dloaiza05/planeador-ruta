@@ -2,12 +2,13 @@
 (async()=>{
 const $=id=>document.getElementById(id),ub=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
 try{
- const [id,key,exp]=location.hash.slice(1).split('.');
+ const [id,key,exp,...resto]=location.hash.slice(1).split('.'),auto=resto.join('.');   // el usuario lleva punto (moder.10)
  if(!/^[a-f0-9]{24}$/.test(id||'')||!key||!/^\d{13}$/.test(exp||''))throw new Error('Abre el enlace completo que compartió Diego.');
  if(Date.now()>Number(exp))throw new Error('El enlace venció. Pídele a Diego uno nuevo. Tu Excel descargado y tu avance local no se borraron.');
  async function decrypt(file,k){const res=await fetch('t/'+file+'.json',{cache:'no-store'});if(!res.ok)throw new Error('No se pudo cargar. Revisa tu conexión e inténtalo de nuevo.');const x=await res.json(),ck=await crypto.subtle.importKey('raw',ub(k),'AES-GCM',false,['decrypt']);const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:ub(x.iv)},ck,ub(x.data));return JSON.parse(await new Response(new Blob([plain]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text());}
  const pack=await decrypt(id,key);$('titulo').textContent='Planeador · '+pack.monthName;
  const select=$('persona');select.replaceChildren(new Option('Selecciona tu nombre…',''));pack.people.forEach(p=>select.add(new Option(p.name+' · '+p.user,p.user)));select.onchange=()=>{$('entrar').disabled=!select.value;};
+ if(auto&&pack.people.some(p=>p.user===auto)){select.value=auto;$('entrar').disabled=false;setTimeout(()=>$('entrar').click(),50);}   // 28-oct: abrir directo a una persona (flechita del planeador)
  $('entrar').onclick=async()=>{const p=pack.people.find(p=>p.user===select.value);if(!p)return;$('entrar').disabled=true;$('error').textContent='';
   try{if(Date.now()>Number(exp))throw new Error('El enlace venció. Pídele uno nuevo a Diego.');const app=await decrypt(p.id,p.key);
    window.__PERSONAL={user:p.user,month:pack.month};window.__PERSONAL_D=app.D;
