@@ -1910,13 +1910,21 @@ function mesOpciones() {
   for (let i = 0; i < 13; i++) { const t = b0 + i; hay.add(mesClave(Math.floor(t / 12), t % 12 + 1)); }
   hay.add(cur);
   for (const k of [...hay].sort()) { const x = MES_L.find(y => y.k === k), [a, m] = k.split('-').map(Number);
-    const est = k === mesClave(EMB.anio, EMB.mes) && (!x || x.emb) ? '✅ enviado a David' : x || k === cur ? '📝 armado' : '➕ armar desde el panel';
+    const est = k === mesClave(EMB.anio, EMB.mes) && (!x || x.emb) ? '✅ enviado a David' : COORD && COORD.enlacePlan && COORD.enlacePlan[k] ? '📋 archivo de David (abrir)' : x || k === cur ? '📝 armado' : '➕ armar desde el panel';
     out.push({ k, t: `🗓 ${bonito(MESES_N[m - 1])} ${a} · ${est}`, cur: k === cur, hay: !!x || k === cur }); }
   return out;
 }
 const mesSelHTML = () => `<select class="mesSel" aria-label="Mes" title="Cambiar de mes: cada mes guarda su panel y su planificador">${mesOpciones().map(o => `<option value="${o.k}"${o.cur ? ' selected' : ''}>${esc(o.t)}</option>`).join('')}</select>`;
 document.addEventListener('change', e => { const s_ = e.target.closest && e.target.closest('select.mesSel'); if (!s_) return; const v = s_.value, cur = mesClave(D.anio, D.mes); s_.value = cur; if (v !== cur) mesElegir(v); });
+function mesDelEquipo(k) {   // 28-oct: el mes con planeador del equipo publicado (noviembre = archivo de David) se abre ahí
+  const cfg = COORD && COORD.enlacePlan && COORD.enlacePlan[k]; if (!cfg) return false;
+  const url = 'https://dloaiza05.github.io/planeador-ruta/p/#' + cfg.id + '.' + cfg.key + '.' + (Date.now() + 86400000);
+  const w = window.open(url, '_blank');
+  if (!w) location.href = url; else toast('🗓 Abrí ' + bonito(MESES_N[+k.split('-')[1] - 1]) + ' (archivo de David) en otra pestaña: escoge la persona y arma su ruta.', 6000);
+  return true;
+}
 async function mesElegir(k) {
+  if (mesDelEquipo(k)) return;
   const x = await mesGet(k); if (x) { mesAbrir(k); return; }
   const [a, m] = k.split('-').map(Number), nom = bonito(MESES_N[m - 1]) + ' ' + a, dias = new Date(a, m, 0).getDate();
   const fest = festivosCO(a).filter(f => f[0] === m), hab = [...Array(dias).keys()].map(i => i + 1).filter(d => new Date(a, m - 1, d).getDay() !== 0 && !fest.some(f => f[1] === d));
