@@ -1142,7 +1142,7 @@ const capBtn = n => { const i = capDe(n); return i < 0 ? '' : `<button type="but
 const CAPD = () => (D.inv || {}).cap || {};
 const MEDREF = () => (D.inv || {}).med;
 function mesInventarioPDV(){const d=D;return d.anio+"-"+String(d.mes).padStart(2,"0")}
-function catalogoComercial(cod,mes){const cat=invDin(),cad=invCadena(cod);return {p:cat.p.filter(r=>r[0]===cad&&invDinAplica(r,cod)),m:cat.m.filter(r=>r[0]===cad)}}
+function catalogoComercial(cod,mes){const cat=invDin(),cad=invCadena(cod);return {p:ConvenioProductos.catalogo(cod,cat.p.filter(r=>r[0]===cad&&invDinAplica(r,cod))),m:cat.m.filter(r=>r[0]===cad)}}
 function chipsListaMes(cod){const h=chipsMes(comercialPDV(cod,mesInventarioPDV()));return h?'<span class="mes-chips">'+h+"</span>":""}
 const fechaZonaComercial=new Intl.DateTimeFormat("sv-SE",{timeZone:"America/Bogota"});
 const cediParrilla = [
@@ -1181,7 +1181,7 @@ function tablaMes(rows,proximas){
 }
 function fotoMes(grupo,clave,texto){return '<button type="button" class="mes-foto" aria-label="Ampliar '+esc(texto)+'"><img loading="lazy" alt="'+esc(texto)+'" data-mgrupo="'+esc(grupo)+'" data-mclave="'+esc(clave)+'"></button>'}
 function contenidoMes(cod,mes){
- const m=comercialPDV(cod,mes),chips=chipsMes(m);if(!chips)return '';
+ const m=comercialPDV(cod,mes),chips=chipsMes(m),productos=ConvenioProductos.bloque(cod,mes);if(!chips&&!productos)return '';
  const sec=(title,body)=>body?'<section class="mes-seccion"><strong>'+title+'</strong>'+body+'</section>':'';
  const fold=(title,body)=>'<details><summary>'+title+'</summary>'+body+'</details>';
  const p=t=>'<p>'+t+'</p>';
@@ -1202,7 +1202,7 @@ function contenidoMes(cod,mes){
  const grupos=new Set(m.camilo.map(r=>r[1].startsWith('ENTRE')?'EV':r[1].startsWith('TIR')?'TR':'PG'));if(m.cafam)grupos.add('CAFAM');const pics=new Map();for(const g of grupos)for(const [k,nota] of m.guia.galeria?.[g]||[])pics.set(k,nota);if(pics.size)exhib+=fold('Imágenes del correo para este montaje ('+pics.size+')',[...pics].map(([k,nota])=>fotoMes('correo',k,nota)).join(''));
  let cedi=m.cafam?p('Unidades reportadas en CEDI el 30 de octubre. Si falta en el punto, pide traslado.')+cediParrilla.map(([prod,q])=>p(esc(prod)+' · <b>'+q+' und.</b>')).join(''):'';
  let pendiente=m.cafam?p('Dolex Avanzado 15 % · EAN 7707172688939 y 7707397791483. La fuente indica 1–31 de octubre. No ejecutar hasta confirmar noviembre con Liliana.'):'';
- return '<details class="mes-pdv"><summary><b>📣 Este mes en este punto</b><span class="mes-chips">'+chips+'</span></summary>'+sec('🏷️ Descuentos de la cadena'+(m.vig.length?' · '+m.vig.length+' vigentes':''),din)+sec('🏆 Concurso Dolex',concurso)+sec(m.olimp&&!m.camilo.length&&!m.cenco.length&&!m.lista&&!m.cafam?'📋 Verificación de exhibición':'🧱 Exhibición negociada',exhib)+sec('📦 Ofertas con inventario en CEDI',cedi)+(pendiente?'<div class="mes-pend">'+sec('Por confirmar',pendiente)+'</div>':'')+'</details>';
+ return '<details class="mes-pdv"><summary><b>📣 Este mes en este punto</b><span class="mes-chips">'+chips+'</span></summary>'+sec('🏷️ Descuentos de la cadena'+(m.vig.length?' · '+m.vig.length+' vigentes':''),din)+sec('🏆 Concurso Dolex',concurso)+sec(m.olimp&&!m.camilo.length&&!m.cenco.length&&!m.lista&&!m.cafam?'📋 Verificación de exhibición':'🧱 Exhibición negociada',exhib)+productos+productos+productos+productos+sec('📦 Ofertas con inventario en CEDI',cedi)+(pendiente?'<div class="mes-pend">'+sec('Por confirmar',pendiente)+'</div>':'')+'</details>';
 }
 document.addEventListener('toggle',e=>{const d=e.target;if(!d.open||!d.closest?.('.mes-pdv'))return;for(const im of d.querySelectorAll('[data-mgrupo]'))if(!im.hasAttribute('src')&&!im.closest('details:not([open])'))medImg(im.dataset.mgrupo,im.dataset.mclave).then(url=>{if(url)im.src=url})},true);
 document.addEventListener('click',e=>{const b=e.target.closest?.('.mes-foto');if(!b)return;const im=b.querySelector('img');if(!im.naturalWidth)return;const dialog=document.createElement('dialog');dialog.className='mes-zoom';dialog.innerHTML='<button type="button">Cerrar</button>';dialog.append(im.cloneNode());document.body.appendChild(dialog);dialog.addEventListener('close',()=>dialog.remove(),{once:true});dialog.onclick=()=>dialog.close();dialog.showModal()});
@@ -1614,7 +1614,23 @@ function planning(c,m){if(!m.cenco.length)return '';const a=modelo(c);return '<p
  const title=t.startsWith('Fila')?'Fila única de cajas (OTC)':t.replace('Lateral ','Lateral N.º ').replace('Perfumeria','sección Perfumería');
  return '<div data-convenio-planning="'+esc(t)+'"><p><b>'+esc(title)+'</b> → '+(t.includes('38')?'solo Sensodyne':t.includes('43')?'Sensodyne + Dolex + Advil':'Sensodyne + Advil + Dolex + Today')+'</p><p><b>Lleva:</b></p>'+r.ean.map(e=>'<p>'+esc(nombres[e]||a?.it?.find(v=>v.e===e)?.d||'EAN '+e)+' · EAN '+esc(e)+' · '+esc(stock(a,e))+'</p>').join('')+'</div>';
  }).join('')+'<p><b>Qué hacer:</b> 1) Ubica el lateral por su número en Perfumería o la fila única de cajas. 2) Coloca solo estos productos, llenos y con precio. 3) Si falta alguno con stock 0, pídelo; si el espacio lo ocupa otra marca, avisa a Diego. 4) Foto del espacio completo.</p>';}
-return {stock,chip,planning,modelo};
+const datos=()=>typeof MEDREF==='function'?MEDREF()?.convenioProductos:null;
+function catalogo(c,base){const d=datos();if(!d||!d.olimpica.includes(String(c)))return base;const seen=new Set(base.map(r=>JSON.stringify([r[0],r[1],r[3],r[4],r[5],r[6]])));return base.concat(d.dinamicas.filter(r=>{const k=JSON.stringify([r[0],r[1],r[3],r[4],r[5],r[6]]);if(seen.has(k))return false;seen.add(k);return true;}));}
+function lista(c,mes='2026-11'){return (datos()?.pdv[String(c)]||[]).filter(x=>x.ini.slice(0,7)<=mes&&x.fin.slice(0,7)>=mes);}
+function chipsProducto(c,v){const now=new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Bogota'}).format(new Date()),ls=lista(c,now.slice(0,7));return ls.filter(x=>x.refs.some(r=>r.e&&String(r.e)===String(v.e)||r.plu&&v.plu&&String(r.plu)===String(v.plu))).map(x=>'<small class="ipd" data-convenio-chip="'+esc(x.id)+'">📌 Convenio: '+esc(x.n)+(x.ini>now?' · desde '+esc(x.ini):'')+'</small>').join('');}
+function detalle(x){const r=x.refs.map(v=>esc(v.d)+(v.e?' · EAN '+esc(v.e):'')+(v.plu?' · PLU '+esc(v.plu):'')+(v.cantidad?' · '+esc(v.cantidad)+' und.':''));
+ const foto=x.foto?'<button type="button" class="mes-foto" aria-label="Ampliar Así debe quedar"><img alt="Así debe quedar · planograma de marca" width="120" loading="lazy" data-cp-foto="'+esc(x.foto)+'"></button><small>📷 Así debe quedar · referencia de marca, adaptar al espacio asignado.</small>':'';
+ return '<div class="cp-detalle"><p><b>Lleva:</b> '+(r.length?r.join(' · '):esc(x.modo))+'</p>'+(r.length?'<small>'+esc(x.modo)+'</small>':'')+foto+'</div>';}
+function convenio(c,id,n){const x=lista(c).find(x=>String(x.id)===String(id))||lista(c).find(x=>x.n===n);return x?detalle(x):'<div class="cp-detalle"><b>Lleva:</b> por definir con Diego</div>';}
+function bloque(c,mes){const ls=lista(c,mes).filter(x=>!x.id.startsWith('planning:'));return ls.length?'<section class="mes-seccion"><strong>📌 Productos por convenio y exhibición</strong>'+ls.map(x=>'<details data-cp-id="'+esc(x.id)+'"><summary>'+esc(x.n)+'</summary>'+detalle(x)+'<small>Fuente: '+esc(x.fuente)+'</small></details>').join('')+'</section>':'';}
+async function cargar(){if(datos())return;const m=MEDREF(),r=await fetch('../m/convenios-productos-03nov.bin',{cache:'no-store'});if(!r.ok)throw new Error('No se pudo cargar el surtido de convenios');const b=new Uint8Array(await r.arrayBuffer()),key=await crypto.subtle.importKey('raw',Uint8Array.from(atob(m.k),c=>c.charCodeAt(0)),'AES-GCM',false,['decrypt']),raw=await crypto.subtle.decrypt({name:'AES-GCM',iv:b.slice(0,12)},key,b.slice(12));const obj=JSON.parse(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text());m.convenioProductos=obj;m.convenioFotos=obj.fotos;}
+if(typeof document!=='undefined'){
+ const cargarFotos=root=>root.querySelectorAll?.('[data-cp-foto]:not([src])').forEach(im=>{if(im.closest('details:not([open])'))return;medImg('convenioFotos',im.dataset.cpFoto).then(u=>{if(u)im.src=u;});});
+ document.addEventListener('toggle',e=>{if(e.target.open)cargarFotos(e.target);},true);
+ document.addEventListener('click',()=>setTimeout(()=>cargarFotos(document),0));
+ setTimeout(()=>{const m=typeof MEDREF==='function'&&MEDREF();if(m?.convenioFotos)for(const key of Object.keys(m.convenioFotos))medImg('convenioFotos',key);},3000);
+}
+return {stock,chip,planning,modelo,catalogo,lista,detalle,convenio,bloque,chipsProducto,cargar};
 })();
 
 // FIN_CONVENIO_PRODUCTOS
@@ -1705,7 +1721,7 @@ function invPop(p, keep) {
     <div class="ipl">${L.length ? L.map((v, k) => { const grupo=z=>IVP.ord==='dinamica'?z.orden.grupo:IVP.ord==='marca'?z.m||'Otros':IVP.ord==='prio'?z.est:'';
       const gk=grupo(v),prev=k?grupo(L[k-1]):null,n=L.filter(z=>grupo(z)===gk).length;
       const tit = gk && gk !== prev ? `<div class="ipgr">${IVP.ord==='dinamica'?GRUPOS_DIN[gk]:IVP.ord === 'marca' ? esc(gk) : INV_E[gk][0] + ' ' + INV_E[gk][1]} <small>${IVP.ord==='dinamica'?'('+n+')':n}</small></div>` : '';
-      return tit + `<div class="ipr e-${v.est}" data-inv-ean="${esc(v.e)}"><div class="ipn"><b>${INV_E[v.est][0]} ${esc(v.d)}</b>${adaptador.prioridad(v)}${adaptador.cap(v.d)}${v.tags.map(t=>`<small class="ipd" data-inv-badge="${t.tipo}" style="display:inline-block;margin-right:5px">${esc(t.texto)}</small>`).join('')}<small>${esc(v.m)}${v.plu ? ' · <b class="plu">PLU ' + esc(v.plu) + '</b>' : ''} · EAN ${esc(v.e)}${v.alc != null && v.alc >= 0 ? ' · alcanza ' + nf(v.alc) + ' días' : ''}</small>${v.pvp || v.web ? `<small>${v.pvp ? '💲 PVP sugerido $' + Math.round(v.pvp).toLocaleString('es-CO') : ''}${v.pvp && v.web ? ' · ' : ''}${v.web ? '🛒 web $' + Math.round(v.web).toLocaleString('es-CO') : ''}</small>` : ''}${v.acc ? `<small class="ipa">👉 ${esc(v.acc)}</small>` : ''}</div>
+      return tit + `<div class="ipr e-${v.est}" data-inv-ean="${esc(v.e)}"><div class="ipn"><b>${INV_E[v.est][0]} ${esc(v.d)}</b>${adaptador.prioridad(v)}${adaptador.cap(v.d)}${ConvenioProductos.chipsProducto(p,v)}${v.tags.map(t=>`<small class="ipd" data-inv-badge="${t.tipo}" style="display:inline-block;margin-right:5px">${esc(t.texto)}</small>`).join('')}<small>${esc(v.m)}${v.plu ? ' · <b class="plu">PLU ' + esc(v.plu) + '</b>' : ''} · EAN ${esc(v.e)}${v.alc != null && v.alc >= 0 ? ' · alcanza ' + nf(v.alc) + ' días' : ''}</small>${v.pvp || v.web ? `<small>${v.pvp ? '💲 PVP sugerido $' + Math.round(v.pvp).toLocaleString('es-CO') : ''}${v.pvp && v.web ? ' · ' : ''}${v.web ? '🛒 web $' + Math.round(v.web).toLocaleString('es-CO') : ''}</small>` : ''}${v.acc ? `<small class="ipa">👉 ${esc(v.acc)}</small>` : ''}</div>
       <div class="ipq"><span><small>Tienda</small><b>${v.est === 'noap' || v.est === 'sd' ? '—' : nf(v.q)}</b></span><span><small>CEDI</small><b>${nf(v.ce)}</b></span></div></div>`; }).join('') : '<p class="sub" style="padding:10px">Nada en este filtro.</p>'}</div></div>`;
   // El planeador conserva su escala de escritorio; solo la ventana se adapta al móvil.
   const escala=matchMedia('(pointer:coarse)').matches&&screen.width<600?Math.max(1,innerWidth/screen.width):1;
@@ -2276,7 +2292,7 @@ async function mesTabla() {                             // registro de todos los
     const key = await crypto.subtle.importKey('raw', kraw, 'AES-GCM', false, ['decrypt']);
     let z; try { z = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b(A.i) }, key, b(A.c)); } catch (e) { return falla('Este enlace no es válido'); }
     const V = JSON.parse(await new Response(new Blob([z]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text());
-    D = V.D; VIS = V.vis || {}; CONV = V.conv || {};
+    D = V.D; VIS = V.vis || {}; CONV = V.conv || {}; await ConvenioProductos.cargar();
     const us = [...Object.keys(D.users).sort(), ...Object.keys(D.periferiaInventario?.users || {}).sort()], u = ui > 0 ? us[ui - 1] : '';
     if (ui > 0 && !u) return falla('Este enlace no es válido');
     ADMIN = !u; U = u || null;                                          // equipo: escoge la persona · una persona: solo sus puntos
