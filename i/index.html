@@ -852,16 +852,23 @@ function invDin() {
   for (const r of out.p) for (const e of new Set(r[1].map(invFam))) (out.ix[r[0] + '|' + e] = out.ix[r[0] + '|' + e] || []).push(r);
   return dinMemo = out;
 }
-const invDinDe = (cad, e) => invDin().ix[cad + '|' + invFam(e)] || [];
+function invDinAplica(r, cod) {
+  if (r[0] !== 'CENCOSUD') return true;
+  const formato = /^SOLO (METRO|JUMBO)\b/i.exec(r[6] || '');
+  if (!formato) return true;
+  const nombre = String((D.pdv[cod] || [])[0] || '').trim().toUpperCase();
+  return nombre.split(/\s+/)[0] === formato[1].toUpperCase();
+}
+const invDinDe = (cad, e, cod) => (invDin().ix[cad + '|' + invFam(e)] || []).filter(r => invDinAplica(r, cod));
 const invDiaTxt = (a, b) => { const d = x => +x.slice(8, 10), mm = x => invFecha(x).split(' ')[1]; return a === b ? d(a) + ' ' + mm(a) : a.slice(0, 7) === b.slice(0, 7) ? d(a) + '–' + d(b) + ' ' + mm(a) : d(a) + ' ' + mm(a) + '–' + d(b) + ' ' + mm(b); };
 const INV_MARCAS = ['SENSODYNE', 'PARODONTAX', 'COREGA', 'AQUAFRESH', 'CENTRUM', 'CALTRATE', 'DOLEX', 'ADVIL', 'VOLTAREN', 'SCOTT', 'LUA', 'ENO', 'TODAY', 'CHAPSTICK', 'CHAP STICK', 'NICORETTE', 'EMERGEN', 'TUMS', 'ROBITUSSIN'];
 function invRefsSinData(cod, cad, cadN) {                 // punto sin inventario: todas las referencias igual, con dinámica y precio de la web
   const I = invDatos(), W = (D.inv || {}).web, t = invTiendaWeb(cad, cod), R = {}, nombre = {};
   const add = (e, n) => { const f = invFam(e); if (!R[f]) R[f] = e; if (n && !nombre[f]) nombre[f] = n; };
   if (W && t) for (const [e, T] of Object.entries(W.p)) if (T[t]) add(e, T[t][10]);
-  for (const r of invDin().p) if (r[0] === cad) for (const e of r[1]) add(e, String(r[2]).split(' · ')[0].replace(/\s*\(PLU[^)]*\)/i, ''));
+  for (const r of invDin().p) if (r[0] === cad && invDinAplica(r, cod)) for (const e of r[1]) add(e, String(r[2]).split(' · ')[0].replace(/\s*\(PLU[^)]*\)/i, ''));
   const L = Object.entries(R).map(([f, e]) => { const pr = I.prod[e] || I.prod[f] || [], n = pr[0] || nombre[f] || 'EAN ' + e, N = normH(n).toUpperCase();
-    const m = pr[1] || (INV_MARCAS.find(k => N.includes(k)) || 'Otros').replace('SCOTT', 'Emulsión de Scott'), din = invDinDe(cad, e);
+    const m = pr[1] || (INV_MARCAS.find(k => N.includes(k)) || 'Otros').replace('SCOTT', 'Emulsión de Scott'), din = invDinDe(cad, e, cod);
     return { e, d: n, m: bonito(m), c: pr[2] || '', din, est: 'sd' }; });
   if (!L.length) return `<p class="mu">No tenemos la lista de referencias de ${esc(cadN)} (no tiene tienda en línea y el KAM no ha mandado dinámicas).</p>`;
   L.sort((a, b) => (b.din.length ? 1 : 0) - (a.din.length ? 1 : 0) || a.m.localeCompare(b.m) || a.d.localeCompare(b.d));
@@ -1306,7 +1313,7 @@ function invAnalisis(cod) {
   const cad = invCadena(cod), R = invRef(cad), P = I.prod, it = [], conv = invMarcasConv(cod);
   const fila = (e, q, est) => { const p = P[e] || ['EAN ' + e, '', 'Otros'], pr = (x.p || {})[e], pm = R.pm[e];
     return { e, d: p[0], m: p[1], c: p[2], q, qa: x.qa ? x.qa[e] : undefined, est, conv: conv.includes(p[1]), med: R.med[e] || 0, dist: R.n ? (R.cuenta[invFam(e)] || 0) / R.n : 0,
-      pr, pm, precio: pr && pm && Math.abs(pr - pm) / pm > 0.05, rot: (x.r || {})[e], din: invDinDe(cad, e) }; };
+      pr, pm, precio: pr && pm && Math.abs(pr - pm) / pm > 0.05, rot: (x.r || {})[e], din: invDinDe(cad, e, cod) }; };
   const famQ = {}; for (const [e, q] of Object.entries(x.q)) if (q > 0) famQ[invFam(e)] = (famQ[invFam(e)] || 0) + q;
   for (const [e, q] of Object.entries(x.q)) {
     if (q === 0 && famQ[invFam(e)] > 0) { const v = fila(e, 0, 'ok'); v.cubre = famQ[invFam(e)]; it.push(v); continue; }   // lo tiene con el otro código
@@ -1509,12 +1516,12 @@ function invSinDataA(cod) {   // 28-oct: punto SIN reporte del CEN → misma fic
   const cad = invCadena(cod), I = invDatos(), W = (D.inv || {}).web, t = invTiendaWeb(cad, cod), R = {}, nombre = {};
   const add = (e, n) => { const f = invFam(e); if (!R[f]) R[f] = e; if (n && !nombre[f]) nombre[f] = n; };
   if (W && t) for (const [e, T] of Object.entries(W.p)) if (T[t]) add(e, T[t][10]);
-  for (const r of invDin().p) if (r[0] === cad) for (const e of r[1]) add(e, String(r[2]).split(' · ')[0].replace(/\s*\(PLU[^)]*\)/i, ''));
+  for (const r of invDin().p) if (r[0] === cad && invDinAplica(r, cod)) for (const e of r[1]) add(e, String(r[2]).split(' · ')[0].replace(/\s*\(PLU[^)]*\)/i, ''));
   const deGuia = !Object.keys(R).length && !TP_NO.test(cad);   // sin web ni dinámicas: los infaltables de la guía de Tienda Perfecta de su canal
   if (deGuia) for (const [e, g] of Object.entries(tpGuia())) { const r = TP_SMK.test(cad) ? g.S : g.DA; if (r) add(e, r[4]); }
   const it = Object.entries(R).map(([f, e]) => { const pr = I.prod[e] || I.prod[f] || [], n = pr[0] || nombre[f] || 'EAN ' + e, N = normH(n).toUpperCase();
     const m = pr[1] || (INV_MARCAS.find(k => N.includes(k)) || 'Otros').replace('SCOTT', 'Emulsión de Scott');
-    return { e, d: n, m: bonito(m), c: pr[2] || '', din: invDinDe(cad, e), est: 'sd', q: 0, dist: 0, conv: false }; });
+    return { e, d: n, m: bonito(m), c: pr[2] || '', din: invDinDe(cad, e, cod), est: 'sd', q: 0, dist: 0, conv: false }; });
   const nd = it.filter(v => v.din.length).length, nw = it.filter(v => invWeb(v.e, t)).length, M = {}; for (const v of it) M[v.m] = (M[v.m] || 0) + 1;
   const cadN = bonito(cad).replace('Grupo Exito', 'Éxito').replace('Olimpica', 'Olímpica');
   const hay = !it.length ? `<div class="ivHay sd"><b>📋 Sin lista de referencias de ${esc(cadN)}</b><p class="mu" style="margin:4px 0 0">No tiene tienda en línea ni dinámicas del KAM y la cadena no manda inventario: revisa el surtido en la visita.</p></div>` : `<div class="ivHay sd"><b>📋 ${it.length} referencias Haleon de ${esc(cadN)}</b>${deGuia ? ' · <b>(infaltables de la guía de Tienda Perfecta)</b>' : ''} · ⚪ sin reporte de inventario${nd ? ' · 🏷 ' + nd + ' con dinámica' : ''}${nw ? ' · 🛒 ' + nw + ' con precio en la web de ' + esc(WEB_T[t]) : ''}<div class="ivMs">${Object.entries(M).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<span><b>${esc(k)}</b> ${n} ref.</span>`).join('')}</div></div>`;
@@ -1527,7 +1534,7 @@ function invDetalle(cod) {
     if (!cod || !D.pdv[cod]) { el.innerHTML = ''; return; }
     document.querySelectorAll('#invIn .ivP').forEach(b => b.classList.toggle('on', b.dataset.iv === cod));
     const cad = invCadena(cod), cadN = bonito(cad).replace('Grupo Exito', 'Éxito').replace('Olimpica', 'Olímpica'), un = invDueno(cod);
-    const P = invDin().p.filter(r => r[0] === cad), M = invDin().m.filter(r => r[0] === cad), G = {};
+    const P = invDin().p.filter(r => r[0] === cad && invDinAplica(r, cod)), M = invDin().m.filter(r => r[0] === cad), G = {};
     for (const r of P) (G[r[2]] = G[r[2]] || []).push(r);
     el.innerHTML = `<h3>${esc(pdv(cod)[0])}</h3><p class="mu">${esc(cadN)} · código ${esc(cod)}${un && D.users[un] ? ' · ' + esc(bonito(D.users[un].nombre)) : ''}</p>
       <div class="ivAv">⚪ <b>Sin data de inventario</b>: no tenemos reporte de ${esc(cadN)} (ni de la tienda ni del CEDI). Revisa el inventario en la visita.</div>
