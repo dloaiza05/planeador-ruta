@@ -2055,6 +2055,10 @@ async function mesTabla() {                             // registro de todos los
     const us = Object.keys(D.users).sort(), u = ui > 0 ? us[ui - 1] : '';
     if (ui > 0 && !u) return falla('Este enlace no es válido');
     ADMIN = !u; U = u || null;                                          // equipo: escoge la persona · una persona: solo sus puntos
+    if (ADMIN && D.periferiaInventario) {
+      D.users = { ...D.periferiaInventario.users, ...D.users };
+      D.pdv = { ...D.periferiaInventario.pdv, ...D.pdv };
+    }
     const vence = new Date(exp).toLocaleString('es-CO', { weekday: 'long', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
     document.getElementById('vence').innerHTML = `📦 Inventario del equipo · solo lectura · <b>se actualiza solo</b> con cada inventario publicado${u ? ' · ' + esc(bonito(D.users[u].nombre)) : ''}`;
     pintarInv();
