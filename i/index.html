@@ -1615,9 +1615,9 @@ function stock(modelo,ean){const r=modelo?.it?.find(v=>String(v.e)===String(ean)
 function modelo(c){return typeof invPopupModelo==='function'?invPopupModelo(c):typeof D!=='undefined'?D.inv?.popupModelos?.[c]:null;}
 function chip(m){const lateral=m.cenco.filter(x=>x.startsWith('Lateral')).map(x=>x.match(/\d+/)?.[0]).filter(Boolean);return [lateral.length?'🧱 Lateral '+lateral.join(' y ')+' Perfumería':'',m.cenco.some(x=>x.startsWith('Fila'))?'🧱 Fila única cajas':''].filter(Boolean).join(' · ');}
 function planning(c,m){if(!m.cenco.length)return '';const a=modelo(c);return '<p><b>🧱 Espacio pagado por Haleon en este '+(/JUMBO/i.test(a?.n||'')?'Jumbo':'punto')+'</b> · 1–30 nov (planning de Valentina, KAM Cencosud)</p>'+m.cenco.map(t=>{
- const r=m.guia.planning?.[t];if(!r)return '<p>'+esc(t)+' · Lleva: por definir con Diego</p>';
+ const r=m.guia.planning?.[t],saved=lista(c).find(x=>x.id==='planning:'+t||x.n===t),refs=(r?.ean||[]).map(e=>({e,d:nombres[e]||a?.it?.find(v=>String(v.e)===String(e))?.d||'EAN '+e,plu:a?.it?.find(v=>String(v.e)===String(e))?.plu||''}));
  const title=t.startsWith('Fila')?'Fila única de cajas (OTC)':t.replace('Lateral ','Lateral N.º ').replace('Perfumeria','sección Perfumería');
- return '<div data-convenio-planning="'+esc(t)+'"><p><b>'+esc(title)+'</b> · 1–30 nov → '+(t.includes('38')?'solo Sensodyne':t.includes('43')?'Sensodyne + Dolex + Advil':'Sensodyne + Advil + Dolex + Today')+'</p><p><b>Lleva:</b></p>'+gruposReferencias(r.ean,e=>nombres[e]||a?.it?.find(v=>String(v.e)===String(e))?.d||'EAN '+e,e=>'<p data-planning-ean="'+esc(e)+'" title="EAN '+esc(e)+'">'+esc(nombres[e]||a?.it?.find(v=>String(v.e)===String(e))?.d||'EAN '+e)+' · <b>'+esc(stock(a,e))+'</b></p>')+'</div>';
+ return '<div data-convenio-planning="'+esc(t)+'"><p><b>'+esc(title)+'</b> · 1–30 nov → '+(t.includes('38')?'solo Sensodyne':t.includes('43')?'Sensodyne + Dolex + Advil':'Sensodyne + Advil + Dolex + Today')+'</p>'+lleva({...saved,n:t,refs,modo:r?'cargue exacto del planning':'por definir con Diego'},c)+'</div>';
  }).join('')+'<p><b>Qué hacer:</b></p><p>1) Ubica el lateral por su número en Perfumería o la fila única de cajas.</p><p>2) Coloca solo estos productos, llenos y con precio.</p><p>3) Si falta alguno con stock 0, pídelo; si el espacio lo ocupa otra marca, avisa a Diego.</p><p>4) Foto del espacio completo.</p>';}
 const datos=()=>typeof MEDREF==='function'?MEDREF()?.convenioProductos:null;
 function catalogo(c,base){const d=datos();if(!d||!d.olimpica.includes(String(c)))return base;const seen=new Set(base.map(r=>JSON.stringify([r[0],r[1],r[3],r[4],r[5],r[6]])));return base.concat(d.dinamicas.filter(r=>{const k=JSON.stringify([r[0],r[1],r[3],r[4],r[5],r[6]]);if(seen.has(k))return false;seen.add(k);return true;}));}
@@ -1643,12 +1643,39 @@ function historialReferencia(c,x){
  if(!rr.length)return '';
  return '<details><summary>Gestiones registradas · '+rr.length+'</summary>'+rr.map(g=>'<p><b>'+esc(g.f.slice(0,10))+' · '+esc(g.un||g.u)+'</b><br>'+esc(g.mo||'Sin causal registrada')+'<br>Observación: <span style="white-space:pre-wrap">'+esc(g.ob||'Sin observación escrita.')+'</span></p>').join('')+'</details>';
 }
-function detalle(x,c){
- const ref=v=>'<p>'+esc(v.d)+(v.e?' · EAN '+esc(v.e):'')+(v.plu?' · PLU '+esc(v.plu):'')+(v.cantidad?' · '+esc(v.cantidad)+' und.':'')+'</p>';
- const foto=(x.fotos||[]).map(k=>fotoOficial(k,x.fotoNota||x.n)).join('')+(x.fotoNota?'<small>'+esc(x.fotoNota)+'</small>':'');
- return '<div class="cp-detalle"><b>Lleva</b>'+gruposReferencias(x.refs,v=>v.d,ref)+'<p>'+esc(x.modo)+'</p>'+foto+historialReferencia(c,x)+'</div>';
+function nombreCorto(v){
+ let s=nombres[v.e]||String(v.d||'Referencia por definir');
+ const marca=s.match(/\b(Today|Sensodyne|Advitabs|Advil|Dolex|Voltaren|Caltrate|Centrum|Corega|Parodontax|Scott|Aquafresh)\b/i);
+ if(marca)s=s.slice(marca.index);
+ // Las descripciones farmacológicas conservan la presentación de la caja, no toda la fórmula.
+ const caja=s.match(/\bCAJ\s+(\d+)\s+TAB/i);
+ if(caja&&s.includes(' - '))s=s.split(' - ')[0]+' x'+caja[1];
+ s=s.replace(/\b(CJA|CAJ|CJAx|FCO|FRASCO|BOTELLA|BLISTER)\b/gi,'').replace(/\b(TABS?|TABLETAS?|TBS|CAPSULAS?|CASULAS|CAPS|UND\.?)\b/gi,'').replace(/\b(ALT|NF|OPTIZORB|SB|SUB)\b/gi,'').replace(/\bgr\b/gi,'g').replace(/\bSUSP\s*x?/gi,'Susp. ').replace(/\s*[xX]\s*(\d)/g,' x$1').replace(/\s+/g,' ').trim();
+ s=s.replace(/\s+N$/,'').replace(/\bPed\b/gi,'Pediátrico').replace(/\bNinos\b/gi,'Niños');
+ return s;
 }
-function convenio(c,id,n){const x=lista(c).find(x=>String(x.id)===String(id))||lista(c).find(x=>x.n===n);return x?detalle(x,c):'<div class="cp-detalle"><b>Lleva:</b> por definir con Diego</div>';}
+function stockRef(c,v){
+ const a=modelo(c);if(v.e)return stock(a,v.e);
+ const r=v.plu&&a?.it?.find(r=>String(r.plu)===String(v.plu));return r?stock(a,r.e):'sin dato';
+}
+function fotosModelo(x){
+ const fm=x.fotoModelo,keys=fm?.claves||[];
+ if(!keys.length)return '<p class="cp-sin-modelo">sin foto modelo oficial</p>';
+ return keys.map(k=>{const r=datos()?.modelosOficiales?.[k];return r?'<figure class="cp-modelo">'+fotoOficial(k,r.titulo)+'<figcaption>'+esc(r.fuente)+' · pág. '+r.pagina+' · '+esc(r.titulo)+'</figcaption></figure>':'';}).join('')+'<small class="cp-nota">'+esc(fm.nota)+'</small>';
+}
+function lleva(x,c){
+ const refs=x.refs||[],grupos=new Map();
+ for(const v of refs){const n=nombreCorto(v),m=n.match(/\b(Today|Sensodyne|Advitabs|Advil|Dolex|Voltaren|Caltrate|Centrum|Corega|Parodontax|Scott|Aquafresh)\b/i),brand=m?m[1][0].toUpperCase()+m[1].slice(1).toLowerCase():'Otras referencias';if(!grupos.has(brand))grupos.set(brand,[]);grupos.get(brand).push(v);}
+ const orden=['Dolex','Advil','Advitabs','Voltaren'];
+ const lista=[...grupos].sort(([a],[b])=>{const ia=orden.indexOf(a),ib=orden.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);}).map(([brand,rs])=>'<section class="cp-marca"><b>'+esc(brand)+'</b><ul>'+rs.map(v=>'<li data-cp-ean="'+esc(v.e||'')+'"><span title="'+esc(v.d)+'">'+esc(nombreCorto(v))+'</span> <b class="cp-stock">'+esc(stockRef(c,v))+'</b><details class="cp-codigos"><summary>códigos</summary><small>'+esc(v.d)+(v.e?' · EAN '+esc(v.e):'')+(v.plu?' · PLU '+esc(v.plu):'')+(v.cantidad?' · '+esc(v.cantidad)+' und.':'')+'</small></details></li>').join('')+'</ul></section>').join('');
+ return '<details class="cp-lleva"><summary>▶ Lleva ('+refs.length+' productos) · 📷 Así debe quedar</summary><div class="cp-contenido">'+(x.modo==='según portafolio codificado'?'<small class="cp-nota">según portafolio codificado</small>':'')+(refs.length?lista:'<p>Surtido por definir con Diego.</p>')+(x.modo&&x.modo!=='según portafolio codificado'?'<p>'+esc(x.modo)+'</p>':'')+'<b>📷 Así debe quedar</b>'+fotosModelo(x)+'</div></details>';
+}
+function detalle(x,c){return '<div class="cp-detalle">'+lleva(x,c)+historialReferencia(c,x)+'</div>';}
+function convenio(c,id,n){const x=lista(c).find(x=>String(x.id)===String(id))||lista(c).find(x=>x.n===n);return detalle(x||{id,n,refs:[],modo:'por definir con Diego'},c);}
+function fichas(c,convs){
+ const seen=new Set();return '<div class="cp-fichas">'+convs.filter(x=>x&&!seen.has(String(x.ce))&&seen.add(String(x.ce))).map(x=>'<section class="cp-ficha"><small>'+esc(x.e)+' · cód. '+esc(x.ce)+'</small>'+convenio(c,x.ce,x.e)+'</section>').join('')+'</div>';
+}
+
 const estadoTP=s=>({cumple:'✅ cumple',parcial:'⚠️ parcial',no_cumple:'❌ no cumple',sin_dictamen:'Sin dictamen'})[s]||'Sin dictamen';
 function versus(c){const r=datos()?.versus?.pdv[String(c)];if(!r)return '';return '<section class="mes-seccion" data-tp-pdv="'+esc(c)+'"><strong>🆚 Tienda Perfecta vs foto real</strong><p><b>'+estadoTP(r.estado)+'</b> · alcance revisado</p><small>'+esc(r.alcance)+'</small>'+(r.motivo?'<p>'+esc(r.motivo)+'</p>':'')+(r.ultimaFotoRegistrada?'<p>Última foto registrada en fuentes VUM consultadas: '+esc(r.ultimaFotoRegistrada)+'</p>':'')+r.acciones.map((a,i)=>'<p>'+(i+1)+'. '+esc(a)+'</p>').join('')+r.revisiones.map(x=>'<details data-tp-mueble="'+esc(x.mueble)+'"><summary>'+estadoTP(x.dictamen)+' · '+esc(x.mueble)+' · '+esc(x.fecha)+'</summary><p>'+esc(x.observado)+'</p><p>Entrepaños visibles: '+(x.entrepanos??'no determinable')+'. '+esc(x.caras)+'</p><p><b>Foto real:</b> '+esc(x.sello)+'</p>'+x.fotos.map(id=>fotoOficial('tp_real_'+id,'Foto real '+r.nombre+' · '+x.fecha)).join('')+'<p><b>Modelo oficial:</b></p>'+(x.modelo?fotoOficial(x.modelo,x.notaModelo):'<p>Sin guía oficial gráfica verificada para esta cadena y tipo de mueble.</p>')+'<small>'+esc(x.notaModelo)+'</small><p><b>Marcas y ubicación:</b> '+esc(x.marcas)+'</p><p><b>Competencia:</b> '+esc(x.competencia)+'</p><p><b>Precio:</b> '+esc(x.precio)+' · <b>POP:</b> '+esc(x.pop)+'</p><p><b>Criterio:</b> '+esc(x.regla)+'</p>'+x.acciones.map((a,i)=>'<p>'+(i+1)+'. '+esc(a)+'</p>').join('')+'</details>').join('')+(r.pendientesCandidatos?'<small>Quedan '+r.pendientesCandidatos+' registros de convenio con fotos pendientes de revisar; pueden corresponder a un mismo mueble.</small>':'')+'</section>';}
 function resumen(u=''){const v=datos()?.versus;if(!v)return '';const rs=Object.entries(v.personas).filter(([k])=>!u||k===u);return '<details class="mes-pdv" data-tp-resumen><summary><b>🆚 Tienda Perfecta · resumen por persona</b></summary><p>Revisión parcial. Los contadores reflejan los hallazgos de las fotos revisadas; Sin dictamen incluye fotos pendientes y encuadres insuficientes.</p>'+rs.map(([k,r])=>'<p data-tp-persona="'+esc(k)+'"><b>'+esc(r.nombre)+'</b> · '+r.codigos.length+' PDV<br>✅ '+r.cumple+' · ⚠️ '+r.parcial+' · ❌ '+r.no_cumple+' · Sin dictamen '+r.sin_dictamen+'</p>').join('')+'</details>';}
@@ -1683,11 +1710,12 @@ function masivosBloque(c,mes){
 function bloque(c,mes){const ls=lista(c,mes).filter(x=>!x.id.startsWith('planning:'));return sosBloque(c,mes)+masivosBloque(c,mes)+(mes==='2026-11'?guiaCadena(c)+versus(c):'')+(ls.length?'<section class="mes-seccion"><strong>📌 Productos por convenio y exhibición</strong>'+ls.map(x=>'<details data-cp-id="'+esc(x.id)+'"><summary>'+esc(x.n)+'</summary>'+detalle(x,c)+'<small>Fuente: '+esc(x.fuente)+'</small></details>').join('')+'</section>':'');}
 async function cargar(){if(datos())return;const m=MEDREF(),r=await fetch('../m/convenios-productos-03nov.bin',{cache:'no-store'});if(!r.ok)throw new Error('No se pudo cargar el surtido de convenios');const b=new Uint8Array(await r.arrayBuffer()),key=await crypto.subtle.importKey('raw',Uint8Array.from(atob(m.k),c=>c.charCodeAt(0)),'AES-GCM',false,['decrypt']),raw=await crypto.subtle.decrypt({name:'AES-GCM',iv:b.slice(0,12)},key,b.slice(12));const obj=JSON.parse(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text());m.convenioProductos=obj;m.convenioFotos=obj.fotos;}
 if(typeof document!=='undefined'){
+ if(!document.getElementById('cp-estilo')){const st=document.createElement('style');st.id='cp-estilo';st.textContent=".cp-detalle,.cp-fichas,.cp-ficha{min-width:0;max-width:100%;box-sizing:border-box}.cp-fichas{clear:both;margin-top:6px}.cp-ficha{padding:5px 0;border-top:1px solid #e2e8f0}.cp-ficha>small{display:block;color:#5a6474;font-size:11px}.cp-lleva{width:100%;margin:3px 0;box-sizing:border-box}.cp-lleva>summary{display:block!important;list-style:none!important;white-space:nowrap;cursor:pointer;font-size:clamp(10px,3.2vw,12px);padding:5px 0!important;line-height:1.4}.cp-lleva>summary::after{content:none!important}.cp-lleva>summary::-webkit-details-marker{display:none}.cp-contenido{padding:5px 0;white-space:normal;overflow-wrap:break-word}.cp-nota,.cp-codigos{color:#667085;font-size:11px}.cp-nota{display:block;margin:3px 0 6px}.cp-marca{margin:6px 0}.cp-marca ul{list-style:none;margin:3px 0;padding:0}.cp-marca li{margin:0;padding:5px 0;border-bottom:1px solid #eee;font-size:12px;line-height:1.4}.cp-stock{font-size:11px;font-weight:500;white-space:normal}.cp-codigos{display:inline-block;vertical-align:top;margin-left:4px;max-width:100%}.cp-codigos>summary{display:inline!important;cursor:pointer;padding:0!important;font-size:10px;list-style:none}.cp-codigos>summary::after{content:none!important}.cp-codigos[open]{display:block;margin:3px 0;overflow-wrap:anywhere}.cp-modelo{display:inline-block;vertical-align:top;margin:4px;max-width:140px}.cp-modelo figcaption{font-size:10px;color:#667085}.cp-modelo .mes-foto img{width:120px;height:86px;object-fit:contain}.cp-sin-modelo{font-size:12px;color:#667085}.rcp>.cp-detalle{grid-column:1/-1;width:100%}";document.head.append(st);}
  const cargarFotos=root=>root.querySelectorAll?.('[data-cp-foto]:not([src])').forEach(im=>{if(im.closest('details:not([open])'))return;medImg('convenioFotos',im.dataset.cpFoto).then(u=>{if(u)im.src=u;});});
  document.addEventListener('toggle',e=>{if(e.target.open)cargarFotos(e.target);},true);
  document.addEventListener('click',()=>setTimeout(()=>cargarFotos(document),0));
 }
-return {rankingLineas,rankingPresentacion,campanasChips,sosBloque,masivosBloque,stock,chip,planning,modelo,catalogo,lista,detalle,convenio,bloque,chipsProducto,cargar,guiaCadena,versus,resumen};
+return {lleva,nombreCorto,stockRef,fichas,rankingLineas,rankingPresentacion,campanasChips,sosBloque,masivosBloque,stock,chip,planning,modelo,catalogo,lista,detalle,convenio,bloque,chipsProducto,cargar,guiaCadena,versus,resumen};
 })();
 
 // FIN_CONVENIO_PRODUCTOS
