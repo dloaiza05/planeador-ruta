@@ -33,7 +33,7 @@ function etiquetas(v,a,dia=hoy()){
 const GRUPOS_DIN={
  vigente:'🏷️ Con dinámica y en tienda',
  proxima:'🏷️ Próximas de noviembre y en tienda',
- sinstock:'🏷️ Con dinámica u oferta, sin stock en tienda',
+ sinstock:'🏷️ Otras dinámicas u ofertas · revisar stock o vigencia',
  resto:'Otros productos'
 };
 const RANGO_DIN={vigente:0,proxima:1,sinstock:2,resto:3};
@@ -41,7 +41,10 @@ function ordenComercial(v,a,dia,tags){
  const vig=vigencias(v,a,dia),activas=vig.filter(r=>r[4]<=dia),proximas=vig.filter(r=>r[4]>dia&&r[4]>='2026-11-01'&&r[4]<='2026-11-30');
  // «Sin dato», no codificado y saldos negativos nunca prueban existencia en tienda.
  const conocido=!a.sd&&!['sd','noap'].includes(v.est)&&typeof v.q==='number'&&Number.isFinite(v.q),stock=conocido&&v.q>0;
- const grupo=stock&&activas.length?'vigente':stock&&proximas.length?'proxima':conocido&&v.q===0&&tags.length?'sinstock':'resto';
+ // Las ofertas del nombre/CEN cuentan para el orden aunque no traigan fecha.
+ // «Por confirmar» no asciende; el tercer grupo conserva los badges sin inventar stock.
+ const oferta=tags.some(t=>t.tipo==='oferta'),pendiente=tags.some(t=>t.tipo==='confirmar');
+ const grupo=stock&&!pendiente&&(activas.length||oferta)?'vigente':stock&&!pendiente&&proximas.length?'proxima':tags.length?'sinstock':'resto';
  const aplicables=activas.length?activas:proximas;
  const descuento=Math.max(0,...aplicables.map(r=>Number(r[3])||0));
  const fin=aplicables.filter(r=>(Number(r[3])||0)===descuento).map(r=>r[5]||r[4]).sort()[0]||'9999-12-31';
