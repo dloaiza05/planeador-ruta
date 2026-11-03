@@ -50,11 +50,19 @@ function guiaSurtido(x){
  return (g.modelos||[]).map(m=>'<section class="cp-guia"><b>'+esc(m.titulo)+'</b><ul>'+m.lineas.map(l=>'<li>'+esc(l)+'</li>').join('')+'</ul></section>').join('')+(g.nota?'<p class="cp-nota">'+esc(g.nota)+'</p>':'')+(g.fuente?'<small class="cp-nota">Fuente del surtido: '+esc(g.fuente)+'</small>':'');
 }
 function galeria(x,c){
- const d=datos(),fm=x.fotoModelo||{},mes=x.periodo||mesActual(),cap=d?.capturas?.[String(c)+'|'+x.id+'|'+mes];
- const slot=(k,label)=>{const r=d?.modelosOficiales?.[k];return k&&r?{tipo:'modelo',label,mini:k+'_mini',hq:k+'_hq',nota:r.titulo+' · '+r.fuente+' · pág. '+r.pagina}:{tipo:'modelo',label,nota:'sin modelo oficial'};};
- const modelos=fm.verificado===true?fm.claves||[]:[],ej=(d?.ejemplosReales||[]).filter(r=>r.tipo===(x.guiaLleva?.tipo||x.tipo||x.n)&&r.cadena===fm.cadena).slice(0,2).map(r=>({tipo:'ejemplo',label:'Ejemplo real · '+r.nombre,mini:r.mini,hq:r.hq,nota:r.nombre+' · '+r.PDV+' · '+r.fecha+' · '+r.motivo}));
- return [slot(modelos.find(k=>[3,4].includes(d?.modelosOficiales?.[k]?.documento)),'Así debe quedar · Tienda Perfecta'),slot(modelos.find(k=>[1,2].includes(d?.modelosOficiales?.[k]?.documento)),'Guía NOV-DIC'),...ej,cap?{tipo:'captura',label:'Última captura · '+cap.fecha,mini:cap.mini,hq:cap.hq,nota:cap.fecha+' · '+cap.autor+' · VUM · cód. '+x.id,estado:cap.estado}:{tipo:'captura',label:'Última captura',nota:'sin foto aún · '+mes}];
+ const d=datos(),mes=x.periodo||mesActual(),r=d?.mediaConvenios?.[String(c)+'|'+x.id],fm=x.fotoModelo||{};
+ const models=r?.modelos||(fm.verificado?(fm.claves||[]).map(key=>({key,verificado:true})):[]);
+ const slots=models.map(m=>{const a=d?.modelosOficiales?.[m.key];if(!a)return null;return {tipo:'modelo',label:(m.grupo||([3,4].includes(a.documento)?'Tienda Perfecta':'Guía NOV-DIC'))+' · '+(m.verificado?'✔ verificado':'◐ referencia · verificar'),mini:m.key+'_mini',hq:m.key+'_hq',nota:a.titulo+' · '+a.fuente+' · pág. '+a.pagina+(m.nota?' · '+m.nota:'')};}).filter(Boolean);
+ if(r?.mecanica)slots.push({tipo:'modelo',label:'Parrilla · mecánica comercial',mini:r.mecanica,hq:r.mecanica,nota:'Liliana Vera · 30-oct · Ofertas destacadas del mes. Verificar vectorización; vigencia Dolex Avanzado por confirmar.'});
+ if(!slots.length)slots.push({tipo:'modelo',label:'Modelo',nota:'sin modelo oficial'});
+ const ej=(d?.ejemplosReales||[]).filter(e=>(r?.ejemplos||[]).includes(e.hq)).slice(0,2);
+ slots.push(...ej.map(e=>({tipo:'ejemplo',label:'Ejemplo · '+e.nombre+' · '+e.PDV,mini:e.mini,hq:e.hq,nota:e.fecha+' · '+e.motivo+' · '+e.limite})));
+ const capMes=d?.capturas?.[String(c)+'|'+x.id+'|'+mes],cap=[capMes,r?.captura].filter(v=>v&&v.fecha.slice(0,7)<=mes).sort((a,b)=>b.fecha.localeCompare(a.fecha))[0];
+ const fecha=f=>{const a=f.slice(0,10).split('-');return a[2]+'-'+['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][Number(a[1])-1];};
+ slots.push(cap?{tipo:'captura',label:'Última captura · '+fecha(cap.fecha),mini:cap.mini,hq:cap.hq,nota:cap.fecha+' · '+cap.autor+' · VUM · '+(cap.relacion||'mismo PDV y código')+' · cód. '+(cap.codigo||x.id)+(cap.fecha.slice(0,7)!==mes?' · evidencia histórica; no acredita '+mes:''),estado:cap.estado}:{tipo:'captura',label:'Última captura',nota:'sin foto aún · '+mes});
+ return slots;
 }
+
 function miniatura(x,c){
  const slots=galeria(x,c),serialized=esc(JSON.stringify(slots));
  return '<span class="cp-trio">'+slots.map((s,i)=>'<span class="cp-slot">'+(s.hq?'<button type="button" class="cp-mini" data-cp-galeria="'+serialized+'" data-cp-indice="'+i+'" aria-label="Ampliar '+esc(s.label)+'"><img width="48" height="48" loading="lazy" data-cp-foto="'+esc(s.mini)+'" alt="'+esc(s.label)+'">'+(s.estado?'<span class="cp-punto" aria-label="'+esc(s.estado)+'">'+({cumple:'✅',parcial:'⚠️',no_cumple:'❌',sin_dictamen:'⚪'}[s.estado]||'⚪')+'</span>':'')+'</button>':'<span class="cp-mini cp-mini-vacia" role="img" aria-label="'+esc(s.nota)+'"><small>'+ (i===2?'sin foto<br>tomar foto':'sin modelo<br>oficial')+'</small></span>')+'<small class="cp-rotulo">'+esc(s.label)+'</small></span>').join('')+'</span>';
