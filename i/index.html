@@ -1168,7 +1168,7 @@ function chipsMes(m){
  if(!m.vig.length&&!fechas.size&&m.dias.length)nombres.push('🏷️ Calendario');
  if(m.concurso)nombres.push('🏆 Concurso Dolex');
  if(m.camilo.length)nombres.push('🧱 '+m.camilo.map(r=>r[1].toLocaleLowerCase('es')+' '+r[2]).join(', '));
- if(m.cenco.length)nombres.push('🧱 '+m.cenco[0].split(' · ')[0]+(m.cenco.length>1?' +'+(m.cenco.length-1):''));
+ if(m.cenco.length)nombres.push(ConvenioProductos.chip(m));
  if(m.olimp)nombres.push("📋 Verificación Olímpica");
  if(m.lista)nombres.push('🧱 Rejilla Lista 12');
  if(m.cafam)nombres.push('🧱 Parrilla Cafam','📦 6 ofertas CEDI');
@@ -1193,12 +1193,12 @@ function contenidoMes(cod,mes){
  let concurso=m.concurso?p('Dolex Avanzado Rápida Acción x24 obligatorio. También participa Dolex Forte x10.')+p('Ristra o puesto de pago: mínimo 3 unidades. Rejilla sin POP: 12. Detrás del mostrador solo cuenta el puesto de pago.')+p('Por mes: ristra $11.000 · puesto de pago $25.000 · rejilla $50.000. Tope por servicio $300.000; pago en febrero sujeto a auditoría.')+p('Servicio Base V&amp;M · 1 nov–30 dic. Foto hasta el 20 nov o el 21 dic. '+(m.cnd?'Código Bogotá/Cundinamarca: <b>LNV11CND</b>.':'Usa el código vigente de tu regional.')+' No aplica en exhibición negociada.')+fotoMes('concurso','dolex','Mecánica Dolex'):'';
  let exhib='';
  if(m.camilo.length){exhib+=p('<b>Camilo · Colsubsidio</b> · hasta marzo de 2027.')+m.camilo.map(([centro,tipo,codigo,marca])=>p(esc([centro,tipo,codigo,marca].filter(Boolean).join(' · ')))).join('')+p('Confirma el montaje con el encargado y comparte la foto con Camilo. El reporte es por fuera de VUM.');for(const k of new Set(m.camilo.flatMap(r=>r[2].startsWith('EV')?['ev']:r[2].startsWith('TR')?['tr']:['pg','pg2','pg3'])))exhib+=fotoMes('camilo',k,'Referencia Colsubsidio '+k.toUpperCase())}
- if(m.cenco.length)exhib+=p('<b>Valentina · Cencosud</b> · noviembre')+m.cenco.map(s=>p(esc(s))).join('')+p('Verifica montaje y surtido en el espacio asignado.');
+ if(m.cenco.length)exhib+=ConvenioProductos.planning(cod,m);
  if(m.lista)exhib+=p('<b>Juan Diego · Rejilla Sensodyne Lista 12</b> · 13 nov–3 ene. Almacén '+esc(m.lista[0])+'.')+p('Rejilla con impulso. Verifica autorización; en WOW o reforma a WOW no instales muebles ni POP.')+fold('4 PLU y sus EAN',Object.entries(m.plus).map(([plu,ean])=>p(esc(plu)+' · '+esc(ean))).join(''));
  if(m.cafam)exhib+=p('<b>Liliana · Parrilla Cafam</b> · noviembre')+p('Referencias vectorizadas en la zona caliente rosada «Ofertas destacadas del mes». Verifica recomendación del regente, POP y folleto o pantalla.')+fotoMes('camilo','cafam','Mecánica de exhibición Cafam');
  if(m.camilo.length){const cc=m.guia.cargue||{};const gg=new Set(m.camilo.map(r=>r[1].startsWith('ENTRE')?'EV':r[1].startsWith('PUNTA')?'PG':/espalda/i.test(r[3])?'ESPALDA':/advitabs/i.test(r[3])?'ADVITABS':/dolex/i.test(r[3])?'DOLEX':/gripa/i.test(r[3])?'GRIPA':''));for(const g of gg)if(cc[g])exhib+=fold('Cargue del correo · '+({EV:'entrepaño',PG:'punta de góndola',GRIPA:'ristra Advil Gripa',DOLEX:'ristra Dolex',ADVITABS:'ristra Advitabs',ESPALDA:'ristra Advil Espalda y Cuello'}[g]),cc[g].map(([plu,pd,q])=>p(esc(pd)+' · PLU '+esc(plu)+' · <b>'+esc(q)+' und.</b>')).join(''))}
  if(m.olimp)exhib+=p('<b>Olímpica · Seguimiento en visita</b>')+p(esc(m.olimp));
- if(m.cenco.length)for(const x of m.cenco){const a=m.guia.planning?.[x];if(a)exhib+=fold('Surtido · '+esc(x),p(esc(a.texto))+p('EAN: '+esc(a.ean.join(', '))))}
+ 
  const grupos=new Set(m.camilo.map(r=>r[1].startsWith('ENTRE')?'EV':r[1].startsWith('TIR')?'TR':'PG'));if(m.cafam)grupos.add('CAFAM');const pics=new Map();for(const g of grupos)for(const [k,nota] of m.guia.galeria?.[g]||[])pics.set(k,nota);if(pics.size)exhib+=fold('Imágenes del correo para este montaje ('+pics.size+')',[...pics].map(([k,nota])=>fotoMes('correo',k,nota)).join(''));
  let cedi=m.cafam?p('Unidades reportadas en CEDI el 30 de octubre. Si falta en el punto, pide traslado.')+cediParrilla.map(([prod,q])=>p(esc(prod)+' · <b>'+q+' und.</b>')).join(''):'';
  let pendiente=m.cafam?p('Dolex Avanzado 15 % · EAN 7707172688939 y 7707397791483. La fuente indica 1–31 de octubre. No ejecutar hasta confirmar noviembre con Liliana.'):'';
@@ -1601,6 +1601,23 @@ function invSinDataA(cod) {   // 28-oct: punto SIN reporte del CEN → misma fic
   const hay = !it.length ? `<div class="ivHay sd"><b>📋 Sin lista de referencias de ${esc(cadN)}</b><p class="mu" style="margin:4px 0 0">No tiene tienda en línea ni dinámicas del KAM y la cadena no manda inventario: revisa el surtido en la visita.</p></div>` : `<div class="ivHay sd"><b>📋 ${it.length} referencias Haleon de ${esc(cadN)}</b>${deGuia ? ' · <b>(infaltables de la guía de Tienda Perfecta)</b>' : ''} · ⚪ sin reporte de inventario${nd ? ' · 🏷 ' + nd + ' con dinámica' : ''}${nw ? ' · 🛒 ' + nw + ' con precio en la web de ' + esc(WEB_T[t]) : ''}<div class="ivMs">${Object.entries(M).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<span><b>${esc(k)}</b> ${n} ref.</span>`).join('')}</div></div>`;
   return { cad, cod, sd: true, sdHay: hay, it, f: '', fa: '', g: '', unid: 0, skus: 0, conRef: 0, ref: it.length, surt: 0, noap: 0, agot: 0, pedir: 0, escalar: 0, din: nd, dinF: 0 };
 }
+// INICIO_CONVENIO_PRODUCTOS
+// Fuente única: productos y montajes de convenios en coordinador, /i/ y /val/.
+const ConvenioProductos=(()=>{
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nombres={'7707397792763':'Sensodyne Protección Completa Econopack 180 g','7794640170133':'Sensodyne Repara y Protege 100 g','7896009498091':'Sensodyne Protección Completa 90 g','7794640170720':'Sensodyne Repara y Protege Blanqueadora 100 g','7707397791629':'Dolex Forte x10','7707397791469':'Dolex Avanzado x24','7702132008611':'Advil Max x10 cápsulas','7451079001543':'Dolex Gripa x12','7707397792503':'Advil Gripa Max x6','7702132655495':'Advil Espalda y Cuello x5 cápsulas','7702132003814':'Today Real Sensation x3','7702132002688':'Today Lubricado x3'};
+function stock(modelo,ean){const r=modelo?.it?.find(v=>String(v.e)===String(ean));return !r||modelo.sd||r.q==null||['sd','noap'].includes(r.est)?'sin dato':r.q>0?'✅ tienda '+r.q:r.q===0?'❌ tienda 0 → pedir':'inventario negativo → verificar';}
+function modelo(c){return typeof invPopupModelo==='function'?invPopupModelo(c):typeof D!=='undefined'?D.inv?.popupModelos?.[c]:null;}
+function chip(m){const lateral=m.cenco.filter(x=>x.startsWith('Lateral')).map(x=>x.match(/\d+/)?.[0]).filter(Boolean);return [lateral.length?'🧱 Lateral '+lateral.join(' y ')+' Perfumería':'',m.cenco.some(x=>x.startsWith('Fila'))?'🧱 Fila única cajas':''].filter(Boolean).join(' · ');}
+function planning(c,m){if(!m.cenco.length)return '';const a=modelo(c);return '<p><b>Espacio pagado por Haleon en este '+(/JUMBO/i.test(a?.n||'')?'Jumbo':'punto')+'</b> · 1–30 nov (planning de Valentina, KAM Cencosud)</p>'+m.cenco.map(t=>{
+ const r=m.guia.planning?.[t];if(!r)return '<p>'+esc(t)+' · Lleva: por definir con Diego</p>';
+ const title=t.startsWith('Fila')?'Fila única de cajas (OTC)':t.replace('Lateral ','Lateral N.º ').replace('Perfumeria','sección Perfumería');
+ return '<div data-convenio-planning="'+esc(t)+'"><p><b>'+esc(title)+'</b> → '+(t.includes('38')?'solo Sensodyne':t.includes('43')?'Sensodyne + Dolex + Advil':'Sensodyne + Advil + Dolex + Today')+'</p><p><b>Lleva:</b></p>'+r.ean.map(e=>'<p>'+esc(nombres[e]||a?.it?.find(v=>v.e===e)?.d||'EAN '+e)+' · EAN '+esc(e)+' · '+esc(stock(a,e))+'</p>').join('')+'</div>';
+ }).join('')+'<p><b>Qué hacer:</b> 1) Ubica el lateral por su número en Perfumería o la fila única de cajas. 2) Coloca solo estos productos, llenos y con precio. 3) Si falta alguno con stock 0, pídelo; si el espacio lo ocupa otra marca, avisa a Diego. 4) Foto del espacio completo.</p>';}
+return {stock,chip,planning,modelo};
+})();
+
+// FIN_CONVENIO_PRODUCTOS
 // INICIO_COMPONENTE_INV_COMPARTIDO
 // Fuente única del popup INV: el generador la incorpora sin variantes en las cuatro entradas.
 const InvPopup=(()=>{
