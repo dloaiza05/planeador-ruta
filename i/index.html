@@ -1373,6 +1373,10 @@ function invPorMarca(L) {                               // distribución numéri
   return m;
 }
 
+function codigoFotoMes(mes){
+ const codigos={'2026-10':['OBR10CND','JMO10CND'],'2026-11':['NST11CND','LNV11CND']}[mes];
+ return codigos ? 'Bogotá y Cundinamarca · Convenios '+codigos[0]+' · Concursos '+codigos[1] : '';
+}
 function pintarInv() {
   const I = invDatos(), cont = $('#invIn');
   if (!ADMIN && !U) { cont.innerHTML = '<div class="cvCar">Entra con tu usuario para ver el inventario de tus puntos.</div>'; return; }
@@ -1412,11 +1416,11 @@ function pintarInv() {
   if (sinPlanDia && todos.length) h += `<div class="ivAv">📅 ${u ? esc(bonito((D.users[u] || {}).nombre || u)) + ' no tiene' : 'No hay'} visitas planeadas el ${esc(diaTxt(+invDia))}: se muestran todos ${u ? 'sus' : 'los'} puntos.</div>`;
   if (!todos.length && invDia) {
     h += `<div class="cvCar">${Object.keys(vis).length ? 'Los puntos que se visitan (' + esc(diaTxt(+invDia)) + ')' + ' no tienen archivo de inventario todavía' + (sinArchivo ? ' (' + pl(sinArchivo, 'visita', 'visitas') + ')' : '') + '.' : 'No hay visitas agendadas (' + esc(diaTxt(+invDia)) + ').'}<br><button class="b2" id="ivTodo">Ver todos los puntos</button></div>`;
-    cont.innerHTML = h; invEventos(); return;
+    cont.innerHTML = (codigoFotoMes(String(D.anio)+'-'+String(D.mes).padStart(2,'0')) ? '<p class="mu">'+codigoFotoMes(String(D.anio)+'-'+String(D.mes).padStart(2,'0'))+'</p>' : '') + h; invEventos(); return;
   }
   if (!todos.length) {
     h += `<div class="cvCar">Todavía no hay inventario de ${u ? 'tus' : 'los'} puntos.${ADMIN ? '<br>Descarga del CEN (Gestión de Inventarios → Consulta de Reporte de Inventarios) y súbelo con <b>📂 Subir inventario</b>, o déjalo en Descargas y se carga en la noche.' : ''}</div>`;
-    cont.innerHTML = h; invEventos(); return;
+    cont.innerHTML = (codigoFotoMes(String(D.anio)+'-'+String(D.mes).padStart(2,'0')) ? '<p class="mu">'+codigoFotoMes(String(D.anio)+'-'+String(D.mes).padStart(2,'0'))+'</p>' : '') + h; invEventos(); return;
   }
   h += (() => {                                           // 🏷 resumen: qué dinámicas hay este mes, de qué cadena y de dónde salen
     const I = invDin(), G = {};
@@ -1452,7 +1456,7 @@ function pintarInv() {
     return `<button class="ivP sd${c === invSel ? ' on' : ''}" data-iv="${esc(c)}"><b>${esc(pdv(c)[0])}</b><span>${vis[c] ? '🕘 ' + vis[c].map(x => fmt(x.hora)).join(', ') + ' · ' : ''}${esc(bonito(invCadena(c)))}${ADMIN && !invPer && nm ? ' · ' + esc(nm) : ''}</span><span class="ivHy">⚪ Sin data de inventario (tienda ni CEDI)${n ? ' · 🏷 ' + pl(n, 'dinámica', 'dinámicas') : ''}</span></button>`; }).join('')}${!L.length && !SD.length ? invNada(q, u) : ''}</div><div class="ivDet" id="ivDet"></div></div>`;
   // 28-oct: Diego pidió quitar «Para el jefe y el ejecutivo» en todas partes (planificador, enlace compartido y enlace del equipo); invEjecutivo queda sin usar   // 28-oct: Diego pidió quitar «Para el jefe y el ejecutivo» (por cadena, CEDI, marcas, lo que más falta, dinámicas vs inventario) de su planificador
   h += `<p class="mu ivPie">Fuente: reportes INVRPT del CEN Carvajal (producto, cantidad y punto con su GLN). El CEN no manda PLU, mínimos/máximos ni ventas: <b>Normal</b> es lo que suelen tener tus puntos de esa cadena (calculado) y la <b>rotación</b> sale de comparar el inventario de un día con el siguiente. Si un producto no aparece en el punto, el CEN lo reporta en cero (agotado o sin codificar).</p>`;
-  cont.innerHTML = h;
+  cont.innerHTML = (codigoFotoMes(String(D.anio)+'-'+String(D.mes).padStart(2,'0')) ? '<p class="mu">'+codigoFotoMes(String(D.anio)+'-'+String(D.mes).padStart(2,'0'))+'</p>' : '') + h;
   if (!invSel || !(L.some(a => a.cod === invSel) || SD.includes(invSel))) invSel = L[0] ? L[0].cod : (SD[0] || '');
   invDetalle(invSel); invEventos();
 }
