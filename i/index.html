@@ -842,14 +842,15 @@ let dinMemo = null;
 const dinLocal = () => { try { return JSON.parse(localStorage.getItem(DIN_K) || 'null'); } catch (e) { return null; } };
 const hoyISO = () => { const t = new Date(); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'); };
 function invDin() {
-  if (dinMemo) return dinMemo;
+  const hoyComercial=new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Bogota'}).format(new Date());
+  if (dinMemo && dinMemo.dia===hoyComercial) return dinMemo;
   const A = (D.inv || {}).din || {}, B = dinLocal(), p = [], m = [], kp = new Set(), km = new Set();
   for (const src of [B, A]) if (src) {                                   // lo subido aquí manda sobre lo publicado
     for (const r of Array.isArray(src.p) ? src.p : []) { if (!Array.isArray(r) || (r[0]==='CAFAM' && /por confirmar/i.test(r[6]||'')) || !Array.isArray(r[1]) || !/^\d{4}-\d\d-\d\d$/.test(r[4])) continue; const k = JSON.stringify(r.slice(0,7)); if (!kp.has(k)) { kp.add(k); p.push(r); } }
     for (const r of Array.isArray(src.m) ? src.m : []) { if (!Array.isArray(r) || !/^\d{4}-\d\d-\d\d$/.test(r[1])) continue; const k = [r[0], r[1], r[3]].join('|'); if (!km.has(k)) { km.add(k); m.push(r); } }
   }
   const mes = D.anio + '-' + String(D.mes).padStart(2, '0'), ini = mes + '-01', fin = mes + '-31';
-  const out = { cargado: (A.cargado || ''), p: p.filter(r => r[4] <= fin && (r[5] || r[4]) >= ini), m: m.filter(r => r[1].startsWith(mes)).sort((a, b) => a[1] < b[1] ? -1 : 1), local: !!B, fuentes: [...(A.fuentes || []), ...((B && B.fuentes) || [])], ix: {} };
+  const out = { dia:hoyComercial, cargado: (A.cargado || ''), p: p.filter(r => r[4] <= fin && (r[5] || r[4]) >= ini && (r[5] || r[4]) >= hoyComercial), m: m.filter(r => r[1].startsWith(mes) && r[1]>=hoyComercial).sort((a, b) => a[1] < b[1] ? -1 : 1), local: !!B, fuentes: [...(A.fuentes || []), ...((B && B.fuentes) || [])], ix: {} };
   for (const r of out.p) for (const e of new Set(r[1].map(invFam))) (out.ix[r[0] + '|' + e] = out.ix[r[0] + '|' + e] || []).push(r);
   return dinMemo = out;
 }
@@ -1153,17 +1154,18 @@ function comercialPDV(cod,mes) {
  const med=MEDREF()||{}, extra=med.extrasGuia||{}, id=String(cod), nov=mes==='2026-11';
  const catalogo=catalogoComercial(id,mes), hoy=fechaZonaComercial.format(new Date());
  const vig=[],prox=[],fin=[];
- for(const r of catalogo.p){const hasta=r[5]||r[4];(hoy<r[4]?prox:hoy>hasta?fin:vig).push(r)}
+ for(const r of catalogo.p){const hasta=r[5]||r[4];if(hasta<hoy || hasta.slice(0,7)<mes || r[4].slice(0,7)>mes)continue;(hoy<r[4]?prox:vig).push(r)}
  vig.sort((a,b)=>(a[5]||a[4]).localeCompare(b[5]||b[4]));prox.sort((a,b)=>a[4].localeCompare(b[4]));fin.sort((a,b)=>(b[5]||b[4]).localeCompare(a[5]||a[4]));
  const concurso=(nov||mes==='2026-12')&&med.dolex?.n.includes(id);
- const guia=med.guiaNov||{};const olimp=nov&&guia.olimpica?.[id];return {guia,olimp,vig,prox,fin,dias:catalogo.m,concurso,cnd:nov&&med.dolex?.c.includes(id),cafam:nov&&extra.cafam?.includes(id),camilo:mes>='2026-11'&&mes<='2027-03'?med.espaciosCamilo?.[id]||[]:[],cenco:nov?extra.cenco?.[id]||[]:[],lista:mes>='2026-11'&&mes<='2027-01'?extra.exito?.[id]:null,plus:extra.plus||{}};
+ const guia=med.guiaNov||{};const olimp=nov&&guia.olimpica?.[id];return {guia,olimp,vig,prox,fin,dias:catalogo.m.filter(r=>r[1]>=hoy && r[1].startsWith(mes)),concurso,cnd:nov&&med.dolex?.c.includes(id),cafam:nov&&extra.cafam?.includes(id),camilo:mes>='2026-11'&&mes<='2027-03'?med.espaciosCamilo?.[id]||[]:[],cenco:nov?extra.cenco?.[id]||[]:[],lista:mes>='2026-11'&&mes<='2027-01'?extra.exito?.[id]:null,plus:extra.plus||{}};
 }
 function chipsMes(m){
  const nombres=[];
- if(m.vig.length)nombres.push('🏷️ '+m.vig.length+' descuento'+(m.vig.length===1?'':'s'));
- else if(m.prox.length)nombres.push('🏷️ '+m.prox.length+' próxima'+(m.prox.length===1?'':'s'));
- else if(m.fin.length)nombres.push('🏷️ Finalizadas');
- else if(m.dias.length)nombres.push('🏷️ Calendario');
+ if(m.vig.length)nombres.push('🏷️ '+m.vig.length+(m.vig.length===1?' vigente':' vigentes'));
+ const fechas=new Map();
+ for(const r of m.prox)fechas.set(r[4],(fechas.get(r[4])||0)+1);
+ for(const [fecha,n] of fechas)nombres.push('🏷️ '+n+' desde '+fechaComercial(fecha).replace(' ','-'));
+ if(!m.vig.length&&!fechas.size&&m.dias.length)nombres.push('🏷️ Calendario');
  if(m.concurso)nombres.push('🏆 Concurso Dolex');
  if(m.camilo.length)nombres.push('🧱 '+m.camilo.map(r=>r[1].toLocaleLowerCase('es')+' '+r[2]).join(', '));
  if(m.cenco.length)nombres.push('🧱 '+m.cenco[0].split(' · ')[0]+(m.cenco.length>1?' +'+(m.cenco.length-1):''));
@@ -1187,7 +1189,7 @@ function contenidoMes(cod,mes){
  if(m.vig.length>5)din+=fold('Ver todos ('+m.vig.length+')',tablaMes(m.vig.slice(5),false));
  if(m.prox.length)din+=fold('Próximos ('+m.prox.length+')',tablaMes(m.prox,true));
  if(m.dias.length)din+=fold('Calendario de la cadena',m.dias.map(r=>p(fechaComercial(r[1])+' · '+esc(r.slice(2,4).join(' · ')))).join(''));
- if(m.fin.length)din+=fold('Vencidos ('+m.fin.length+')',tablaMes(m.fin,false));
+ 
  let concurso=m.concurso?p('Dolex Avanzado Rápida Acción x24 obligatorio. También participa Dolex Forte x10.')+p('Ristra o puesto de pago: mínimo 3 unidades. Rejilla sin POP: 12. Detrás del mostrador solo cuenta el puesto de pago.')+p('Por mes: ristra $11.000 · puesto de pago $25.000 · rejilla $50.000. Tope por servicio $300.000; pago en febrero sujeto a auditoría.')+p('Servicio Base V&amp;M · 1 nov–30 dic. Foto hasta el 20 nov o el 21 dic. '+(m.cnd?'Código Bogotá/Cundinamarca: <b>LNV11CND</b>.':'Usa el código vigente de tu regional.')+' No aplica en exhibición negociada.')+fotoMes('concurso','dolex','Mecánica Dolex'):'';
  let exhib='';
  if(m.camilo.length){exhib+=p('<b>Camilo · Colsubsidio</b> · hasta marzo de 2027.')+m.camilo.map(([centro,tipo,codigo,marca])=>p(esc([centro,tipo,codigo,marca].filter(Boolean).join(' · ')))).join('')+p('Confirma el montaje con el encargado y comparte la foto con Camilo. El reporte es por fuera de VUM.');for(const k of new Set(m.camilo.flatMap(r=>r[2].startsWith('EV')?['ev']:r[2].startsWith('TR')?['tr']:['pg','pg2','pg3'])))exhib+=fotoMes('camilo',k,'Referencia Colsubsidio '+k.toUpperCase())}
