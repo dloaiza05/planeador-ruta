@@ -844,7 +844,7 @@ function invDin() {
   if (dinMemo) return dinMemo;
   const A = (D.inv || {}).din || {}, B = dinLocal(), p = [], m = [], kp = new Set(), km = new Set();
   for (const src of [B, A]) if (src) {                                   // lo subido aquí manda sobre lo publicado
-    for (const r of Array.isArray(src.p) ? src.p : []) { if (!Array.isArray(r) || !Array.isArray(r[1]) || !/^\d{4}-\d\d-\d\d$/.test(r[4])) continue; const k = [r[0], r[1].join(' '), r[4], r[5]].join('|'); if (!kp.has(k)) { kp.add(k); p.push(r); } }
+    for (const r of Array.isArray(src.p) ? src.p : []) { if (!Array.isArray(r) || (r[0]==='CAFAM' && /por confirmar/i.test(r[6]||'')) || !Array.isArray(r[1]) || !/^\d{4}-\d\d-\d\d$/.test(r[4])) continue; const k = JSON.stringify(r.slice(0,7)); if (!kp.has(k)) { kp.add(k); p.push(r); } }
     for (const r of Array.isArray(src.m) ? src.m : []) { if (!Array.isArray(r) || !/^\d{4}-\d\d-\d\d$/.test(r[1])) continue; const k = [r[0], r[1], r[3]].join('|'); if (!km.has(k)) { km.add(k); m.push(r); } }
   }
   const mes = D.anio + '-' + String(D.mes).padStart(2, '0'), ini = mes + '-01', fin = mes + '-31';
@@ -853,6 +853,7 @@ function invDin() {
   return dinMemo = out;
 }
 function invDinAplica(r, cod) {
+  if(r[0]==='GRUPO EXITO' && /^SOLO Carulla Calle 102/i.test(r[6]||'')){const ids=MEDREF()?.extrasGuia?.exito||{},dep=ids[String(cod)]?.[0];return !!dep&&String(r[6]).includes('('+dep+')')}
   if (r[0] !== 'CENCOSUD') return true;
   const formato = /^SOLO (METRO|JUMBO)\b/i.exec(r[6] || '');
   if (!formato) return true;
@@ -1034,7 +1035,8 @@ function invDatos() {                                   // publicado + subido aq
   return invMemo = out;
 }
 const invDueno = (() => { let m = null; return cod => { if (!m) { m = {}; for (const [u, x] of Object.entries(D.users)) for (const f of x.filas) m[String(f[1])] = m[String(f[1])] || u; } return m[String(cod)] || ''; }; })();
-const invCadena = cod => String((D.pdv[cod] || [])[1] || '').toUpperCase();
+function cadenaDin(n){const s=String(n||'').toUpperCase(),k=s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');return ['EXITO','GRUPO EXITO','CARULLA'].includes(k)?'GRUPO EXITO':k==='OLIMPICA'?'OLIMPICA':s}
+const invCadena = cod => cadenaDin((D.pdv[cod] || [])[1]);
 const invNum = q => (Math.round(q * 10) / 10).toLocaleString('es-CO');
 const invFecha = f => { const m = String(f || '').match(/(\d{4})-(\d\d)-(\d\d)/); return m ? +m[3] + ' ' + ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][+m[2] - 1] : '—'; };
 function invPuntosDe(u) {                               // códigos de la ruta de u ('' = todo el equipo)
@@ -1143,9 +1145,11 @@ if(mes>='2026-11'&&mes<='2027-01'&&x.exito[s])html+='<details data-exito><summar
 if(mes==='2026-11'&&x.cafam.includes(s))html+='<details data-liliana data-camilo><summary>Cafam · exhibición y abastecimiento</summary><p>En los puntos donde la referencia esté vectorizada, ubícala en la zona caliente identificada en rosado «Ofertas destacadas del mes». Solicita traslado si hay saldo en CEDI. Verifica recomendación del regente, POP y folleto o pantalla.</p><p>Saldos CEDI reportados el 30 de octubre: Advil Liquid Fill Duopack 15 % (1.331), Sensodyne Protección Completa Econopack (96), Centrum Silver pague 100 lleve 130 (140), Centrum Women 30 % (1.707), Today Punto G pague 6 lleve 8 (87) y Dolex Forte pague 17 lleve 20 (2.666).</p><p>Por confirmar con Liliana: el 15 % de los EAN 7707172688939 y 7707397791483 figura del 1 al 31 de octubre. Pendiente de vigencia para noviembre.</p><img data-camilo-foto="cafam" alt="Mecánica original de Cafam" style="max-width:100%;height:auto"></details>';return html}
 function exhibicionesCamilo(cod,mes){const v=MEDREF(),rows=v&&v.espaciosCamilo&&v.espaciosCamilo[String(cod)];if(!rows||mes<'2026-11'||mes>'2027-03')return '';const parts=rows.map(([centro,forma,codigo,marca])=>'<li>'+centro+' · '+forma+' '+codigo+(marca?' · '+marca:'')+'</li>').join('');const refs=[...new Set(rows.flatMap(r=>r[2].startsWith('EV')?['ev']:r[2].startsWith('TR')?['tr']:['pg','pg2','pg3']))];return '<details data-camilo><summary>Colsubsidio · exhibiciones adicionales</summary><p>Hasta marzo de 2027. Verifica los espacios acordados para este punto.</p><ul>'+parts+'</ul><p>Confirma el montaje y el cargue con el encargado y comparte la foto de ejecución en el grupo. Estas exhibiciones temporales se reportan por fuera de VUM. Si el punto tiene dudas, consulta el comunicado de Andrés Felipe Monroy con el encargado e informa a Camilo.</p>'+refs.map(n=>'<img data-camilo-foto="'+n+'" alt="Referencia de '+({ev:'entrepaño',pg:'punta Dolex',pg2:'punta Centrum y Scott',pg3:'punta Centrum y Scott',tr:'tirilla por centro'}[n])+'" style="max-width:100%;height:auto">').join('')+'</details>'}
 document.addEventListener('toggle',e=>{let d=e.target;if(d.open&&d.matches?.('[data-camilo]'))for(const im of d.querySelectorAll('[data-camilo-foto]'))medImg('camilo',im.dataset.camiloFoto).then(u=>{if(u)im.src=u})},true);
+function guiaDinPunto(cod){const d=invDin(),cad=invCadena(cod),h=hoyISO();const prioridad=r=>h<r[4]?1:h>(r[5]||r[4])?2:0;const rows=d.p.filter(r=>r[0]===cad&&invDinAplica(r,cod)).sort((a,b)=>prioridad(a)-prioridad(b)||a[4].localeCompare(b[4])||String(a[2]).localeCompare(String(b[2]))),dias=d.m.filter(r=>r[0]===cad);if(!rows.length&&!dias.length)return '';const vigentes=rows.filter(r=>r[4]<=h&&(r[5]||r[4])>=h).length;
+return '<details data-din-punto><summary>Dinámicas de la cadena · '+vigentes+' vigentes hoy</summary>'+rows.map(r=>{const fin=r[5]||r[4],estado=h<r[4]?'Próxima':h>fin?'Finalizada':'Vigente';return '<p data-din-fila><b>'+esc(r[2])+'</b> · '+(r[3]==null?'Actividad':esc(String(r[3]))+' %')+' · '+estado+'<br>'+esc(invDiaTxt(r[4],fin))+' · '+esc(r[6]||'')+'<br>EAN '+r[1].map(e=>esc(String(e))).join(', ')+'</p>'}).join('')+dias.map(r=>'<p>'+esc(invDiaTxt(r[1],r[1]))+' · '+esc(r.slice(2,4).join(' · '))+'</p>').join('')+'</details>'}
 function contest(cod,mes){
  const m=MEDREF(), cfg=m&&m.dolex;
- const otras=comercialesExtra(cod,mes)+exhibicionesCamilo(cod,mes);if(!cfg||!['2026-11','2026-12'].includes(mes)||!cfg.n.includes(String(cod)))return otras;
+ const otras=guiaDinPunto(cod)+comercialesExtra(cod,mes)+exhibicionesCamilo(cod,mes);if(!cfg||!['2026-11','2026-12'].includes(mes)||!cfg.n.includes(String(cod)))return otras;
  const code=mes==='2026-11'&&cfg.c.includes(String(cod))?' En noviembre usa LNV11CND.':' Usa el código de concurso vigente de tu regional.';
  return otras+'<details data-dolex><summary>Concurso Dolex · cómo acomodar</summary><p>Del 1 de noviembre al 30 de diciembre. Servicio Base V&M. Usa una exhibición adicional que no haya negociado el equipo comercial.</p><p>Incluye siempre Dolex Avanzado Rápida Acción x24. También participa Dolex Forte x10. Coloca mínimo 3 unidades en ristra o puesto de pago, o 12 en rejilla. Detrás de mostrador solo aplica el puesto de pago.</p><p>Elige una zona visible y de alto tráfico. Identifica los productos y marca los precios. Entrega la foto hasta el 20 de noviembre o el 21 de diciembre, según el mes.'+code+'</p><p>Por mes: ristra $11.000, puesto de pago $25.000, rejilla sin POP $50.000. Tope por servicio $300.000. Pago en febrero, sujeto a auditoría.</p><img data-dolex-foto alt="Condiciones originales de la exhibición Dolex" style="max-width:100%;height:auto"></details>';
 }
