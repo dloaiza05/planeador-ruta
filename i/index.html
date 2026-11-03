@@ -1157,10 +1157,10 @@ function comercialPDV(cod,mes) {
  for(const r of catalogo.p){const hasta=r[5]||r[4];if(hasta<hoy || hasta.slice(0,7)<mes || r[4].slice(0,7)>mes)continue;(hoy<r[4]?prox:vig).push(r)}
  vig.sort((a,b)=>(a[5]||a[4]).localeCompare(b[5]||b[4]));prox.sort((a,b)=>a[4].localeCompare(b[4]));fin.sort((a,b)=>(b[5]||b[4]).localeCompare(a[5]||a[4]));
  const concurso=(nov||mes==='2026-12')&&med.dolex?.n.includes(id);
- const guia=med.guiaNov||{};const olimp=nov&&guia.olimpica?.[id];return {guia,olimp,vig,prox,fin,dias:catalogo.m.filter(r=>r[1]>=hoy && r[1].startsWith(mes)),concurso,cnd:nov&&med.dolex?.c.includes(id),cafam:nov&&extra.cafam?.includes(id),camilo:mes>='2026-11'&&mes<='2027-03'?(med.convenioProductos?.guiasCadena?.espaciosCamilo||med.espaciosCamilo)?.[id]||[]:[],cenco:nov?extra.cenco?.[id]||[]:[],lista:mes>='2026-11'&&mes<='2027-01'?extra.exito?.[id]:null,plus:extra.plus||{}};
+ const guia=med.guiaNov||{};const olimp=nov&&guia.olimpica?.[id];return {campanas:ConvenioProductos.campanasChips(cod,mes),guia,olimp,vig,prox,fin,dias:catalogo.m.filter(r=>r[1]>=hoy && r[1].startsWith(mes)),concurso,cnd:nov&&med.dolex?.c.includes(id),cafam:nov&&extra.cafam?.includes(id),camilo:mes>='2026-11'&&mes<='2027-03'?(med.convenioProductos?.guiasCadena?.espaciosCamilo||med.espaciosCamilo)?.[id]||[]:[],cenco:nov?extra.cenco?.[id]||[]:[],lista:mes>='2026-11'&&mes<='2027-01'?extra.exito?.[id]:null,plus:extra.plus||{}};
 }
 function chipsMes(m){
- const nombres=[];
+ const nombres=[...(m.campanas||[])];
  if(m.vig.length)nombres.push('🏷️ '+m.vig.length+(m.vig.length===1?' vigente':' vigentes'));
  const fechas=new Map();
  for(const r of m.prox)fechas.set(r[4],(fechas.get(r[4])||0)+1);
@@ -1275,6 +1275,7 @@ function sckLineaP(cod, a) {                                     // 28-oct: Stor
       return [String(i + 1), c, SCK_DOC_CAT(SCK_DOCN[i], i).concat([sckCalcHtml(cod, i, L.filter(v => v.q > 0).length), ...(aprox(L) ? ['👉 ' + aprox(L)] : []), `👉 Dinámicas: ${din.join(' · ') || 'sin dinámica'}`, `👉 Agotados: ${ago.join(' · ') || 'sin agotados'}`, `👉 Convenios: ${cv.join(' · ') || 'sin convenio'}`]), [VG_SURT[vgCanP(a)][k === 'dolor' ? 'dolor' : k]]]; }))
     .concat([['🏁', 'Cierre', SCK_DOC_CIERRE]]);
   const objetivoSoS=MEDREF()?.guiaNov?.sos?.[cod];if(mesInventarioPDV()==='2026-11' && objetivoSoS!==undefined) S[0][2]=['Medición SoS de noviembre: este punto es objetivo de David.'+(objetivoSoS?' Incluye Today.':''),...S[0][2]];if(chipsMes(comercialPDV(cod,mesInventarioPDV()))) S[0][2]=['Revisa 📣 Este mes en este punto antes de salir.', ...S[0][2]];
+  S[0][2]=ConvenioProductos.rankingPresentacion(S[0][2],cod,mesInventarioPDV());
   return vgTira('📋 Store Check · de la presentación al cierre', S, nom || 'PDV ' + cod, VG_PP, 1);
 }
 const TP_LIN_D = () => { try { return (D.inv || {}).tpLin || {}; } catch (e) { return {}; } };   // 28-oct: va en los datos cifrados;
@@ -1628,14 +1629,42 @@ function convenio(c,id,n){const x=lista(c).find(x=>String(x.id)===String(id))||l
 const estadoTP=s=>({cumple:'✅ cumple',parcial:'⚠️ parcial',no_cumple:'❌ no cumple',sin_dictamen:'Sin dictamen'})[s]||'Sin dictamen';
 function versus(c){const r=datos()?.versus?.pdv[String(c)];if(!r)return '';return '<section class="mes-seccion" data-tp-pdv="'+esc(c)+'"><strong>🆚 Tienda Perfecta vs foto real</strong><p><b>'+estadoTP(r.estado)+'</b> · alcance revisado</p><small>'+esc(r.alcance)+'</small>'+(r.motivo?'<p>'+esc(r.motivo)+'</p>':'')+(r.ultimaFotoRegistrada?'<p>Última foto registrada en fuentes VUM consultadas: '+esc(r.ultimaFotoRegistrada)+'</p>':'')+r.acciones.map((a,i)=>'<p>'+(i+1)+'. '+esc(a)+'</p>').join('')+r.revisiones.map(x=>'<details data-tp-mueble="'+esc(x.mueble)+'"><summary>'+estadoTP(x.dictamen)+' · '+esc(x.mueble)+' · '+esc(x.fecha)+'</summary><p>'+esc(x.observado)+'</p><p>Entrepaños visibles: '+(x.entrepanos??'no determinable')+'. '+esc(x.caras)+'</p><p><b>Foto real:</b> '+esc(x.sello)+'</p>'+x.fotos.map(id=>fotoOficial('tp_real_'+id,'Foto real '+r.nombre+' · '+x.fecha)).join('')+'<p><b>Modelo oficial:</b></p>'+(x.modelo?fotoOficial(x.modelo,x.notaModelo):'<p>Sin guía oficial gráfica verificada para esta cadena y tipo de mueble.</p>')+'<small>'+esc(x.notaModelo)+'</small><p><b>Marcas y ubicación:</b> '+esc(x.marcas)+'</p><p><b>Competencia:</b> '+esc(x.competencia)+'</p><p><b>Precio:</b> '+esc(x.precio)+' · <b>POP:</b> '+esc(x.pop)+'</p><p><b>Criterio:</b> '+esc(x.regla)+'</p>'+x.acciones.map((a,i)=>'<p>'+(i+1)+'. '+esc(a)+'</p>').join('')+'</details>').join('')+(r.pendientesCandidatos?'<small>Quedan '+r.pendientesCandidatos+' registros de convenio con fotos pendientes de revisar; pueden corresponder a un mismo mueble.</small>':'')+'</section>';}
 function resumen(u=''){const v=datos()?.versus;if(!v)return '';const rs=Object.entries(v.personas).filter(([k])=>!u||k===u);return '<details class="mes-pdv" data-tp-resumen><summary><b>🆚 Tienda Perfecta · resumen por persona</b></summary><p>Revisión parcial. Los contadores reflejan los hallazgos de las fotos revisadas; Sin dictamen incluye fotos pendientes y encuadres insuficientes.</p>'+rs.map(([k,r])=>'<p data-tp-persona="'+esc(k)+'"><b>'+esc(r.nombre)+'</b> · '+r.codigos.length+' PDV<br>✅ '+r.cumple+' · ⚠️ '+r.parcial+' · ❌ '+r.no_cumple+' · Sin dictamen '+r.sin_dictamen+'</p>').join('')+'</details>';}
-function bloque(c,mes){const ls=lista(c,mes).filter(x=>!x.id.startsWith('planning:'));return (mes==='2026-11'?guiaCadena(c)+versus(c):'')+(ls.length?'<section class="mes-seccion"><strong>📌 Productos por convenio y exhibición</strong>'+ls.map(x=>'<details data-cp-id="'+esc(x.id)+'"><summary>'+esc(x.n)+'</summary>'+detalle(x)+'<small>Fuente: '+esc(x.fuente)+'</small></details>').join('')+'</section>':'');}
+// Ranking por PDV y campañas de tienda: nunca alimentan badges de producto.
+const rankingDatos=()=>datos()?.rankingSoS;
+function rankingLineas(c,mes){
+ if(mes!=='2026-11')return [];
+ const d=rankingDatos(),r=d?.ranking[String(c)];
+ if(!r)return ['👉 Ranking en la cadena: <b>sin dato</b>','👉 Ventas promedio mes: <b>sin dato</b>','👉 Decil y tipo: sin dato · sin cruce verificado en David Bernal · SoS nov · 3-nov.'];
+ return ['👉 Ranking en la cadena: <b>puesto '+r.puesto+' de '+r.total+'</b> · '+esc(r.cliente),
+ '👉 Ventas promedio mes: <b>$'+Number(r.ventas).toLocaleString('es-CO',{maximumFractionDigits:0})+'</b>',
+ '👉 Decil '+esc(r.decil)+' · Tipo '+esc(r.tipo),
+ '👉 <small>'+esc(d.fuente)+' · comparación entre los PDV del mismo CLIENTE en Sheet3; período de ventas no especificado.</small>'];
+}
+function rankingPresentacion(lineas,c,mes){return mes==='2026-11'?lineas.filter(x=>!/^👉 Ranking en la cadena:/.test(x)).concat(rankingLineas(c,mes)):lineas;}
+function campanasChips(c,mes){
+ if(mes!=='2026-11')return [];
+ const d=rankingDatos();if(!d)return [];
+ return [d.sos[String(c)]?'📏 Medición SoS':'',d.olimpica[String(c)]?'💳 Descuento de tienda con tarjeta':''].filter(Boolean);
+}
+function sosBloque(c,mes){
+ const d=rankingDatos(),r=d?.sos[String(c)];if(mes!=='2026-11'||!r)return '';
+ return '<section class="mes-seccion" data-sos-pdv="'+esc(c)+'"><strong>📏 Medición SoS · noviembre</strong><p>Ruta/usuario en la fuente: '+esc(r.usuario)+' · Aplica Today: <b>'+(r.today?'Sí (X)':'No marcado')+'</b>.</p>'+d.criterios.pasos.map((x,i)=>'<p>'+(i+1)+') '+esc(x)+'</p>').join('')+'<p><b>En este punto:</b> '+esc(d.criterios.categorias.join(' · '))+(r.today?' · Condones/Today.':'. Condones/Today no está marcado para este punto.')+'</p><p>Visitas programadas en noviembre: '+(r.visitas.length?r.visitas.join(', '):'ALERTA · sin visita programada')+'.</p><small>'+esc(d.fuente)+' · PDVs, Criterios, Seleccion muestra, Today y Resumen. '+esc(d.criterios.nota)+' '+esc(d.criterios.resumen)+'</small></section>';
+}
+function masivosBloque(c,mes){
+ const d=rankingDatos(),r=d?.olimpica[String(c)];if(mes!=='2026-11'||!r)return '';
+ const fila=x=>'<p data-tarjeta-fecha="'+x.fecha+'"><b>'+Number(x.fecha.slice(8))+'-nov-2026 · '+esc(x.descuento)+'</b> · '+esc(x.cobertura)+'</p>';
+ const aplica=d.masivos.filter(x=>r.bogota||x.cobertura==='Nacional'),otros=d.masivos.filter(x=>!r.bogota&&x.cobertura!=='Nacional');
+ return '<section class="mes-seccion" data-masivos-pdv="'+esc(c)+'"><strong>💳 Descuento de tienda con tarjeta</strong>'+aplica.map(fila).join('')+(otros.length?'<details><summary>Solo Distrito Bogotá · no aplican en '+esc(r.ciudad)+'</summary>'+otros.map(fila).join('')+'</details>':'')+'<small>Susana Robledo · Olímpica · 3-nov. Descuentos de tienda, no por EAN. TCO: tarjeta Olímpica de crédito; TP: tarjeta de puntos. Confirma las condiciones de la tarjeta en tienda.</small></section>';
+}
+
+function bloque(c,mes){const ls=lista(c,mes).filter(x=>!x.id.startsWith('planning:'));return sosBloque(c,mes)+masivosBloque(c,mes)+(mes==='2026-11'?guiaCadena(c)+versus(c):'')+(ls.length?'<section class="mes-seccion"><strong>📌 Productos por convenio y exhibición</strong>'+ls.map(x=>'<details data-cp-id="'+esc(x.id)+'"><summary>'+esc(x.n)+'</summary>'+detalle(x)+'<small>Fuente: '+esc(x.fuente)+'</small></details>').join('')+'</section>':'');}
 async function cargar(){if(datos())return;const m=MEDREF(),r=await fetch('../m/convenios-productos-03nov.bin',{cache:'no-store'});if(!r.ok)throw new Error('No se pudo cargar el surtido de convenios');const b=new Uint8Array(await r.arrayBuffer()),key=await crypto.subtle.importKey('raw',Uint8Array.from(atob(m.k),c=>c.charCodeAt(0)),'AES-GCM',false,['decrypt']),raw=await crypto.subtle.decrypt({name:'AES-GCM',iv:b.slice(0,12)},key,b.slice(12));const obj=JSON.parse(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text());m.convenioProductos=obj;m.convenioFotos=obj.fotos;}
 if(typeof document!=='undefined'){
  const cargarFotos=root=>root.querySelectorAll?.('[data-cp-foto]:not([src])').forEach(im=>{if(im.closest('details:not([open])'))return;medImg('convenioFotos',im.dataset.cpFoto).then(u=>{if(u)im.src=u;});});
  document.addEventListener('toggle',e=>{if(e.target.open)cargarFotos(e.target);},true);
  document.addEventListener('click',()=>setTimeout(()=>cargarFotos(document),0));
 }
-return {stock,chip,planning,modelo,catalogo,lista,detalle,convenio,bloque,chipsProducto,cargar,guiaCadena,versus,resumen};
+return {rankingLineas,rankingPresentacion,campanasChips,sosBloque,masivosBloque,stock,chip,planning,modelo,catalogo,lista,detalle,convenio,bloque,chipsProducto,cargar,guiaCadena,versus,resumen};
 })();
 
 // FIN_CONVENIO_PRODUCTOS
