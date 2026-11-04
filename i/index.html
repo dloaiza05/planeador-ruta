@@ -1664,12 +1664,12 @@ function galeria(x,c){
  const models=r?.modelos||(fm.verificado?(fm.claves||[]).map(key=>({key,verificado:true})):[]);
  const slots=models.map(m=>{const a=d?.modelosOficiales?.[m.key];if(!a)return null;return {tipo:'modelo',label:(m.grupo||([3,4].includes(a.documento)?'Tienda Perfecta':'Guía NOV-DIC'))+' · '+(m.verificado?'✔ verificado':'◐ referencia · verificar'),mini:m.key+'_mini',hq:m.key+'_hq',nota:(a.instruccion||a.titulo)+' · '+a.fuente+' · pág. '+a.pagina+(a.instruccionCompleta?' · '+a.instruccionCompleta:'')+(m.nota?' · '+m.nota:'')};}).filter(Boolean);
  if(r?.mecanica)slots.push({tipo:'modelo',label:'Parrilla · mecánica comercial',mini:r.mecanica,hq:r.mecanica,nota:'Liliana Vera · 30-oct · Ofertas destacadas del mes. Verificar vectorización; vigencia Dolex Avanzado por confirmar.'});
- if(!slots.length)slots.push({tipo:'modelo',label:'Modelo',nota:'sin modelo oficial'});
- const ej=(d?.ejemplosReales||[]).filter(e=>(r?.ejemplos||[]).includes(e.hq)).slice(0,2);
- slots.push(...ej.map(e=>({tipo:'ejemplo',label:'Ejemplo · '+e.nombre+' · '+e.PDV,mini:e.mini,hq:e.hq,nota:e.fecha+' · '+e.motivo+' · '+e.limite})));
- const capMes=d?.capturas?.[String(c)+'|'+x.id+'|'+mes],cap=[capMes,r?.captura].filter(v=>v&&v.fecha.slice(0,7)<=mes).sort((a,b)=>b.fecha.localeCompare(a.fecha))[0];
- const fecha=f=>{const a=f.slice(0,10).split('-');return a[2]+'-'+['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][Number(a[1])-1];};
- slots.push(cap?{tipo:'captura',label:'Última captura · '+fecha(cap.fecha),mini:cap.mini,hq:cap.hq,nota:cap.fecha+' · '+cap.autor+' · VUM · '+(cap.relacion||'mismo PDV y código')+' · cód. '+(cap.codigo||x.id)+(cap.fecha.slice(0,7)!==mes?' · evidencia histórica; no acredita '+mes:''),estado:cap.estado}:{tipo:'captura',label:'Última captura',nota:'sin foto aún · '+mes});
+ if(!slots.length)slots.push({tipo:'modelo',label:'Modelo',nota:'Sin modelo oficial del mismo canal, mueble y categoría.'});
+ const ej=(d?.ejemplosReales||[]).filter(e=>(r?.ejemplos||[]).includes(e.hq)&&e.cadena===d?.cadenasExactas?.[String(c)]).slice(0,1);
+ slots.push(...ej.map(e=>({tipo:'ejemplo',label:'Referencia real · '+e.PDV+' · '+e.fecha+' · score '+e.score,mini:e.mini,hq:e.hq,nota:'Referencia real · '+e.PDV+' · '+e.fecha+' · score '+e.score+'/100 · '+e.motivo+' · '+e.limite})));
+ const candidate=d?.capturas?.[String(c)+'|'+x.id+'|'+mes];
+ const cap=candidate?.validada&&String(candidate.pdv)===String(c)&&String(candidate.codigo)===String(x.id)&&candidate.fecha.startsWith(mes)?candidate:null;
+ slots.push(cap?{tipo:'captura',label:(cap.alertaSello?cap.alertaSello+' · ':'Captura · ')+cap.fecha,mini:cap.mini,hq:cap.hq,nota:(cap.alertaSello?cap.alertaSello+' · ':'')+cap.fecha+' · '+cap.autor+' · VUM · cód. '+cap.codigo+' · Sello: '+cap.sello,estado:cap.estado}:{tipo:'captura',label:'Captura · '+mes,nota:'Sin foto del mismo PDV y código en el período consultado.'});
  return slots;
 }
 
@@ -1797,11 +1797,11 @@ if(typeof document!=='undefined'){
   const show=async n=>{index=(n+slots.length)%slots.length;const s=slots[index],token=++serial;scale=1;tx=ty=0;paint();im.removeAttribute('src');im.hidden=true;im.alt=s.label;dlg.querySelector('.cp-visor-titulo').textContent=s.label;dlg.querySelector('.cp-visor-nota').textContent=s.nota;state.textContent=s.hq?'Cargando alta calidad…':s.nota;if(s.hq){const u=await fotoURL(s.hq);if(token!==serial||!dlg.open)return;if(u){im.src=u;im.hidden=false;state.textContent='';}else state.textContent='No se pudo cargar la imagen. Cierra y vuelve a intentar.';}};
   dlg.querySelector('.cp-cerrar').onclick=()=>dlg.close();dlg.onclose=()=>{serial++;points.clear();btn.focus();};
   dlg.querySelector('.cp-prev').onclick=()=>show(index-1);dlg.querySelector('.cp-next').onclick=()=>show(index+1);
-  dlg.querySelector('.cp-mas').onclick=()=>{scale=Math.min(6,scale+0.5);paint();};dlg.querySelector('.cp-menos').onclick=()=>{scale=Math.max(1,scale-0.5);if(scale===1)tx=ty=0;paint();};
+  dlg.querySelector('.cp-mas').onclick=()=>{scale=Math.min(4,scale+0.5);paint();};dlg.querySelector('.cp-menos').onclick=()=>{scale=Math.max(1,scale-0.5);if(scale===1)tx=ty=0;paint();};
   dlg.onkeydown=ev=>{if(ev.key==='ArrowRight'){ev.preventDefault();show(index+1);}if(ev.key==='ArrowLeft'){ev.preventDefault();show(index-1);}};
   canvas.ondblclick=()=>{scale=scale===1?2.5:1;tx=ty=0;paint();};
   canvas.onpointerdown=ev=>{canvas.setPointerCapture(ev.pointerId);points.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});if(points.size===1)start={x:ev.clientX,y:ev.clientY,tx,ty,multi:false};if(points.size===2){const [a,b]=[...points.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),scale};if(start)start.multi=true;}};
-  canvas.onpointermove=ev=>{if(!points.has(ev.pointerId))return;points.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});if(points.size===2&&pinch){const[a,b]=[...points.values()];scale=Math.max(1,Math.min(6,pinch.scale*Math.hypot(a.x-b.x,a.y-b.y)/Math.max(1,pinch.d)));paint();}else if(points.size===1&&scale>1&&start){tx=start.tx+ev.clientX-start.x;ty=start.ty+ev.clientY-start.y;paint();}};
+  canvas.onpointermove=ev=>{if(!points.has(ev.pointerId))return;points.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});if(points.size===2&&pinch){const[a,b]=[...points.values()];scale=Math.max(1,Math.min(4,pinch.scale*Math.hypot(a.x-b.x,a.y-b.y)/Math.max(1,pinch.d)));paint();}else if(points.size===1&&scale>1&&start){tx=start.tx+ev.clientX-start.x;ty=start.ty+ev.clientY-start.y;paint();}};
   canvas.onpointerup=ev=>{if(points.size===1&&start&&!start.multi&&scale===1){const dx=ev.clientX-start.x,dy=ev.clientY-start.y;if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy))show(index+(dx<0?1:-1));}points.delete(ev.pointerId);if(!points.size){start=null;pinch=null;}};
   canvas.onpointercancel=()=>{points.clear();start=pinch=null;};
   if(!dlg.open)dlg.showModal();show(index);
