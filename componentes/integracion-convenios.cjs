@@ -7,6 +7,7 @@ function dec(o,k){const d=cr.createDecipheriv('aes-'+k.length*8+'-gcm',k,Buffer.
 function enc(o,k,s){const iv=cr.randomBytes(12),e=cr.createCipheriv('aes-'+k.length*8+'-gcm',k,iv);return {...o,i:iv.toString('base64'),c:Buffer.concat([e.update(z.deflateRawSync(s)),e.final(),e.getAuthTag()]).toString('base64')};}
 function run(root,dest=p.join(root,'planeador-web')){
  const source=p.join(root,'planeador-web/componentes'),cp=json(p.join(root,'datos/convenios_productos_03nov2026.json'));
+ require('./compatibilidad-convenios.cjs').aplicar(cp);
  for(const f of ['ultimasCapturas','versusPorFoto','mediaConvenios','fotos'])A.ok(Object.keys(cp[f]||{}).length,'Fuente incompleta: '+f);
  const fix=json(p.join(root,'analizador/vista_fija.json')),aliases=[fix,...fix.alias];A.equal(new Set(aliases.map(a=>a.id)).size,9);
  const report={aliases:[],campos:Object.fromEntries(['ultimasCapturas','versusPorFoto','mediaConvenios'].map(k=>[k,Object.keys(cp[k]).length])),cpHash:hash(JSON.stringify(cp)),archivos:[]};

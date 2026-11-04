@@ -51,7 +51,7 @@ function guiaSurtido(x){
  return (g.modelos||[]).map(m=>'<section class="cp-guia"><b>'+esc(m.titulo)+'</b><ul>'+m.lineas.map(l=>'<li>'+esc(l)+'</li>').join('')+'</ul></section>').join('')+(g.nota?'<p class="cp-nota">'+esc(g.nota)+'</p>':'')+(g.fuente?'<small class="cp-nota">Fuente del surtido: '+esc(g.fuente)+'</small>':'');
 }
 
-function capturaConvenio(x,c){const d=datos(),k=String(c)+'|'+x.id,mes=x.periodo||mesActual(),actual=d?.capturas?.[k+'|'+mes];const cap=actual?.validada&&!actual.alertaSello?actual:d?.ultimasCapturas?.[k];return cap?.validada&&String(cap.pdv)===String(c)&&String(cap.codigo)===String(x.id)?cap:null;}
+function capturaConvenio(x,c){const d=datos(),k=String(c)+'|'+x.id,mes=x.periodo||mesActual(),actual=d?.capturas?.[k+'|'+mes],audit=d?.compatibilidadConvenios?.ventanas?.[k];const valid=cap=>cap?.validada&&!cap.alertaSello&&String(cap.pdv)===String(c)&&String(cap.codigo)===String(x.id)&&(!audit||audit.capturas.includes(String(cap.foto)));return [actual,d?.ultimasCapturas?.[k]].find(valid)||null;}
 function dictamenConvenio(x,c){const cap=capturaConvenio(x,c);return cap?datos()?.versusPorFoto?.[String(c)+'|'+x.id+'|'+cap.foto]:null;}
 function colorVersus(x,c){const v=dictamenConvenio(x,c);if(v&&[v.tp,v.guia].some(s=>s?.semaforo==='INSUFICIENTE'||s?.criterios?.filter(c=>c.resultado!==null).length<4))return '#94a3b8';const ns=[v?.tp?.score,v?.guia?.score].filter(n=>typeof n==='number'&&Number.isFinite(n));if(ns.length<2)return '#94a3b8';const worst=Math.min(...ns);return worst>=80?'#15803d':worst>=60?'#d97706':'#dc2626';}
 function mapaCapturaHTML(v){if(!v?.mapaProductos?.length)return '';return '<details data-mapa-captura><summary>Productos observados · '+v.mapaProductos.length+' posiciones</summary><p style="font-size:12px">Entrepaños de arriba abajo; posiciones de izquierda a derecha. Se muestra el segmento fotografiado, sin contar profundidad.</p>'+v.mapaProductos.map(m=>'<p style="font-size:12px;overflow-wrap:anywhere"><b>Entrepaño '+esc(m.entrepano)+' · posición '+esc(m.posicion)+'</b>: '+esc(m.referencia)+'<br>'+esc(m.marca)+' · '+esc(m.presentacion||'Presentación no legible')+' · Caras: '+esc(m.caras||'no cuantificadas')+'<br>Precio: '+esc(m.precio||'no verificado')+'</p>').join('')+'</details>';}
@@ -60,15 +60,17 @@ function versusConvenioHTML(x,c){const v=dictamenConvenio(x,c),cap=capturaConven
 
 function galeria(x,c){
  const d=datos(),mes=x.periodo||mesActual(),r=d?.mediaConvenios?.[String(c)+'|'+x.id],fm=x.fotoModelo||{};
- const models=r?.modelos||(fm.verificado?(fm.claves||[]).map(key=>({key,verificado:true})):[]);
+ const audit=d?.compatibilidadConvenios?.ventanas?.[String(c)+'|'+x.id];
+ const models=audit?audit.modelos.map(key=>({key,verificado:true,nota:audit.notaModelo})):(r?.modelos||(fm.verificado?(fm.claves||[]).map(key=>({key,verificado:true})):[]));
  const slots=models.map(m=>{const a=d?.modelosOficiales?.[m.key];if(!a)return null;return {tipo:'modelo',label:(a.producto?'Modelo · '+(a.documento===3?'Tienda Perfecta':'Guía NOV-DIC')+' p.'+a.pagina+' · '+a.titulo:(m.grupo||'Modelo')),mini:m.key+'_mini',hq:m.key+'_hq',nota:(a.instruccion||a.titulo)+' · '+a.fuente+' · pág. '+a.pagina+(a.instruccionCompleta?' · '+a.instruccionCompleta:'')+(m.nota?' · '+m.nota:'')};}).filter(Boolean);
  if(r?.mecanica)slots.push({tipo:'modelo',label:'Parrilla · mecánica comercial',mini:r.mecanica,hq:r.mecanica,nota:'Liliana Vera · 30-oct · Ofertas destacadas del mes. Verificar vectorización; vigencia Dolex Avanzado por confirmar.'});
- if(!slots.length&&r?.modeloEquipo)slots.push({tipo:'modelo',...r.modeloEquipo});
- if(!slots.length)slots.push({tipo:'modelo',label:'Modelo',nota:'Sin modelo oficial del mismo canal, mueble y categoría.'});
- const ej=(d?.ejemplosReales||[]).filter(e=>(r?.ejemplos||[]).includes(e.hq)&&e.cadena===d?.cadenasExactas?.[String(c)]).slice(0,1);
+ if(!slots.length&&!audit&&r?.modeloEquipo)slots.push({tipo:'ejemplo',...r.modeloEquipo});
+ if(!slots.length)slots.push({tipo:'modelo',label:'Modelo',nota:'Sin modelo TP para este mueble'+(audit?.mueble==='NO CONFIRMADO'?'. Mueble pendiente de confirmar con foto.':'.')});
+ const cadenaFoto=s=>/OLIMPICA|SAO/.test(String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase())?'OLIMPICA':String(s||'').toUpperCase();
+ const ej=(d?.ejemplosReales||[]).filter(e=>(audit?.referencias||r?.ejemplos||[]).includes(e.hq)&&cadenaFoto(e.cadena)===cadenaFoto(audit?.cadena||d?.cadenasExactas?.[String(c)])).slice(0,1);
  slots.push(...ej.map(e=>({tipo:'ejemplo',label:'Referencia real · '+e.PDV+' · '+e.fecha+(e.score==null?' · patrón observado':' · score '+e.score+(e.score<60?', mejorable':'')),mini:e.mini,hq:e.hq,nota:'Referencia real · '+e.PDV+' · '+e.fecha+(e.score==null?' · sin score TP · ':' · score '+e.score+'/100 · ')+e.motivo+' · '+e.limite})));
  const cap=capturaConvenio(x,c),ultima=cap&&!cap.fecha.startsWith(mes);
- slots.push(cap?{tipo:'captura',label:(ultima?'Última captura · ':'Captura · ')+cap.fecha,mini:cap.mini,hq:cap.hq,nota:cap.fecha+' · '+cap.autor+' · '+(cap.origen||'VUM')+' · cód. '+cap.codigo+' · Sello: '+cap.sello+(cap.asociacion?' · '+cap.asociacion:'')+(ultima?' · Histórica: no acredita ejecución del mes seleccionado.':''),estado:cap.estado,color:colorVersus(x,c)}:{tipo:'captura',label:'Captura · '+mes,nota:'Sin captura confirmada del mismo PDV y código; búsqueda visual pendiente.'});
+ slots.push(cap?{tipo:'captura',label:(ultima?'Última captura · ':'Captura · ')+cap.fecha,mini:cap.mini,hq:cap.hq,nota:cap.fecha+' · '+cap.autor+' · '+(cap.origen||'VUM')+' · cód. '+cap.codigo+' · Sello: '+cap.sello+(cap.asociacion?' · '+cap.asociacion:'')+(ultima?' · Histórica: no acredita ejecución del mes seleccionado.':''),estado:cap.estado,color:colorVersus(x,c)}:{tipo:'captura',label:'Captura · '+mes,nota:'Sin captura compatible confirmada de la misma categoría, PDV y código.'});
  return slots;
 }
 
