@@ -1670,7 +1670,7 @@ function versusConvenioHTML(x,c){const v=dictamenConvenio(x,c),cap=capturaConven
 function galeria(x,c){
  const d=datos(),mes=x.periodo||mesActual(),r=d?.mediaConvenios?.[String(c)+'|'+x.id],fm=x.fotoModelo||{};
  const models=r?.modelos||(fm.verificado?(fm.claves||[]).map(key=>({key,verificado:true})):[]);
- const slots=models.map(m=>{const a=d?.modelosOficiales?.[m.key];if(!a)return null;return {tipo:'modelo',label:(m.grupo||([3,4].includes(a.documento)?'Tienda Perfecta':'Guía NOV-DIC'))+' · '+(m.verificado?'✔ verificado':'◐ referencia · verificar'),mini:m.key+'_mini',hq:m.key+'_hq',nota:(a.instruccion||a.titulo)+' · '+a.fuente+' · pág. '+a.pagina+(a.instruccionCompleta?' · '+a.instruccionCompleta:'')+(m.nota?' · '+m.nota:'')};}).filter(Boolean);
+ const slots=models.map(m=>{const a=d?.modelosOficiales?.[m.key];if(!a)return null;return {tipo:'modelo',label:(a.producto?'Modelo · '+(a.documento===3?'Tienda Perfecta':'Guía NOV-DIC')+' p.'+a.pagina+' · '+a.titulo:(m.grupo||'Modelo')),mini:m.key+'_mini',hq:m.key+'_hq',nota:(a.instruccion||a.titulo)+' · '+a.fuente+' · pág. '+a.pagina+(a.instruccionCompleta?' · '+a.instruccionCompleta:'')+(m.nota?' · '+m.nota:'')};}).filter(Boolean);
  if(r?.mecanica)slots.push({tipo:'modelo',label:'Parrilla · mecánica comercial',mini:r.mecanica,hq:r.mecanica,nota:'Liliana Vera · 30-oct · Ofertas destacadas del mes. Verificar vectorización; vigencia Dolex Avanzado por confirmar.'});
  if(!slots.length&&r?.modeloEquipo)slots.push({tipo:'modelo',...r.modeloEquipo});
  if(!slots.length)slots.push({tipo:'modelo',label:'Modelo',nota:'Sin modelo oficial del mismo canal, mueble y categoría.'});
@@ -1764,6 +1764,15 @@ function textoFoto(text,clase,limite=78){
  const cut=s.slice(0,limite).replace(/\s+\S*$/,'');
  return '<div class="'+clase+'">'+esc(cut)+'</div><details class="cp-foto-detalle"><summary>Ver detalle</summary><p>'+esc(s)+'</p></details>';
 }
+function analisisTPHTML(){
+ if(typeof TP_ANALISIS_DIEGO==='undefined')return '';
+ const a=TP_ANALISIS_DIEGO,emoji={VERDE:'✅',AMARILLO:'⚠️',ROJO:'❌',INSUFICIENTE:'⚪'};
+ const photo=(x,label)=>!x?'<p>'+label+': sin foto evaluable.</p>':foto({label:label+' · '+x.nombre+' · '+x.fecha,mini:x.mini,hq:x.hq,nota:x.lectura})+'<p>'+esc(x.responsable)+' · TP '+esc(x.score)+'/100'+(x.scoreND!=null?' · NOV-DIC '+esc(x.scoreND)+'/100':'')+' · '+esc(x.fuente)+'</p>';
+ const foto=s=>!s.hq?'<p>'+esc(s.label)+' · imagen no disponible</p>':'<button type="button" data-cp-galeria="'+esc(JSON.stringify([s]))+'" data-cp-indice="0" aria-label="Ampliar '+esc(s.label)+'" style="max-width:100%;background:white;border:1px solid #ccd3dd;border-radius:8px;padding:8px"><img data-cp-foto="'+esc(s.mini)+'" alt="'+esc(s.label)+'" loading="lazy" style="width:180px;height:150px;max-width:100%;object-fit:contain"><br>'+esc(s.label)+'</button>';
+ return '<details id="tp-analisis-diego" style="margin:12px 0;padding:12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px"><summary style="cursor:pointer;font-weight:700">📐 Tienda Perfecta vs anaqueles</summary><p>'+a.ventanas+' convenios · '+a.fotos+' lecturas de foto/convenio sin duplicar · '+a.grupos.length+' tipos × cadena.</p><p>'+esc(a.nota)+'</p>'+a.grupos.map(g=>'<details style="margin:8px 0;border-top:1px solid #ddd;padding:8px 0"><summary>'+esc(g.cadena)+' · '+esc(g.tipo)+' — '+g.convenios+' convenios / '+g.fotosAnalizadas+' fotos · '+Object.entries(g.distribucion).map(([k,n])=>emoji[k]+n).join(' ')+'</summary><p>'+g.conveniosAnalizados+' convenios analizados; '+g.sinAnalisis+' pendientes de lectura. El número de fotos puede superar el de convenios por evidencia histórica.</p><div style="display:flex;flex-wrap:wrap;gap:8px">'+g.modelos.map(m=>foto({label:m.fuente+' p.'+m.pagina+' · '+m.titulo,mini:m.key+'_mini',hq:m.key+'_hq',nota:m.titulo})).join('')+'</div><p><b>Patrón dominante:</b> '+(g.patrones.length?g.patrones.map(([s,n])=>esc(s)+' ('+n+')').join('; '):'Sin análisis visual disponible')+'</p><p><b>Tres fallas más repetidas:</b></p><ol>'+g.fallas.map(([s,n])=>'<li>'+esc(s)+' ('+n+' fotos)</li>').join('')+'</ol><div style="display:flex;flex-wrap:wrap;gap:16px"><div>'+photo(g.mejor,'Mejor foto real')+'</div><div>'+photo(g.peor,'Peor foto real')+'</div></div><details><summary>PDV en rojo · '+g.rojos.length+' convenios según última foto analizada</summary><ul>'+g.rojos.map(x=>'<li>'+esc(x.nombre)+' ('+esc(x.pdv)+') · '+esc(x.responsable)+' · convenio '+esc(x.codigo)+' · '+esc(x.fecha)+' — '+esc(x.diferencias.join('; '))+'</li>').join('')+'</ul></details><details><summary>Todas las lecturas · '+g.fotos.length+'</summary>'+g.fotos.map(x=>'<p>'+emoji[x.semaforo]+' '+esc(x.nombre)+' · '+esc(x.responsable)+' · '+esc(x.fecha)+' · foto '+esc(x.foto)+'<br>'+esc(x.lectura)+'<br>'+esc(x.fuente)+'</p>').join('')+'</details></details>').join('')+'</details>';
+}
+function montarAnalisisTP(){if(typeof TP_ANALISIS_DIEGO==='undefined'||typeof document==='undefined')return;const host=document.getElementById('convSec');if(!host||document.getElementById('tp-analisis-diego'))return;host.insertAdjacentHTML('afterbegin',analisisTPHTML());cargar(host);}
+
 function alineacionTPHTML(x,c){const a=datos()?.alineacionTP?.[String(c)+'|'+String(x.id)];return '<p data-alineacion-tp style="font-size:12px;line-height:1.45"><b>Tienda Perfecta:</b> '+esc(a?a.paginas+' — '+a.revisar:'Sin correspondencia en tabla oficial; identificar mueble y categoría.')+(a?.mueble?'<br><small>Mueble observado: '+esc(a.mueble)+'</small>':'')+'</p>';}
 function ventanaHTML(x,c){
  const slots=galeria(x,c),serialized=esc(JSON.stringify(slots));
@@ -1819,7 +1828,7 @@ if(typeof document!=='undefined'){
  setTimeout(()=>cargarFotos(document),0);
 
 }
-return {capturaConvenio,dictamenConvenio,versusConvenioHTML,sugeridosDavid,fila,ventanaHTML,referenciasVisibles,buscarConvenio,galeria,novedades,miniatura,cabecera,guiaSurtido,lleva,nombreCorto,stockRef,fichas,rankingLineas,rankingPresentacion,campanasChips,sosBloque,masivosBloque,stock,chip,planning,modelo,catalogo,lista,detalle,convenio,bloque,chipsProducto,cargar,guiaCadena,versus,resumen};
+return {analisisTPHTML,montarAnalisisTP,capturaConvenio,dictamenConvenio,versusConvenioHTML,sugeridosDavid,fila,ventanaHTML,referenciasVisibles,buscarConvenio,galeria,novedades,miniatura,cabecera,guiaSurtido,lleva,nombreCorto,stockRef,fichas,rankingLineas,rankingPresentacion,campanasChips,sosBloque,masivosBloque,stock,chip,planning,modelo,catalogo,lista,detalle,convenio,bloque,chipsProducto,cargar,guiaCadena,versus,resumen};
 })();
 
 // FIN_CONVENIO_PRODUCTOS
