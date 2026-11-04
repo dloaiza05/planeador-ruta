@@ -2,6 +2,7 @@
 const ConvenioProductos=(()=>{
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nombres={'7707397792763':'Sensodyne Protección Completa Econopack 180 g','7794640170133':'Sensodyne Repara y Protege 100 g','7896009498091':'Sensodyne Protección Completa 90 g','7794640170720':'Sensodyne Repara y Protege Blanqueadora 100 g','7707397791629':'Dolex Forte x10','7707397791469':'Dolex Avanzado x24','7702132008611':'Advil Max x10 cápsulas','7451079001543':'Dolex Gripa x12','7707397792503':'Advil Gripa Max x6','7702132655495':'Advil Espalda y Cuello x5 cápsulas','7702132003814':'Today Real Sensation x3','7702132002688':'Today Lubricado x3'};
+function sugeridosDavid(c){const s=datos()?.sugeridosDavid,rs=s?.pdv?.[c]||[];if(!rs.length)return '';return '<div class="ipdn" data-sugeridos-david><b>Sugeridos · David sem5</b><small style="display:block">'+esc(s.fuente)+'</small>'+rs.map(r=>'<div class="ipdk"><b>'+esc(r.producto)+'</b><small>sugerido David sem5: '+esc(r.unidades)+' und</small></div>').join('')+'<small>'+esc(s.nota)+' Cantidades solicitadas; no son existencias.</small></div>';}
 function stock(modelo,ean){const r=modelo?.it?.find(v=>String(v.e)===String(ean));return !r||modelo.sd||r.q==null||r.q===''||!Number.isFinite(Number(r.q))||['sd','noap'].includes(r.est)?'sin dato':Number(r.q)>0?'✅ tienda '+r.q:Number(r.q)===0?'❌ tienda 0 → pedir':'inventario negativo → verificar';}
 function modelo(c){return typeof invPopupModelo==='function'?invPopupModelo(c):typeof D!=='undefined'?D.inv?.popupModelos?.[c]:null;}
 function chip(m){const lateral=m.cenco.filter(x=>x.startsWith('Lateral')).map(x=>x.match(/\d+/)?.[0]).filter(Boolean);return [lateral.length?'🧱 Lateral '+lateral.join(' y ')+' Perfumería':'',m.cenco.some(x=>x.startsWith('Fila'))?'🧱 Fila única cajas':''].filter(Boolean).join(' · ');}
@@ -69,7 +70,7 @@ function miniatura(x,c){
 }
 function cabecera(x,label,c){return '<span class="cp-cabecera">'+miniatura(x,c)+'<span class="cp-titulo" title="'+esc(label||x.n)+'">'+esc(label||x.n)+'</span></span>';}
 function fotosModelo(x){const keys=x.fotoModelo?.verificado===true?x.fotoModelo.claves||[]:[];return keys.length?'<small class="cp-nota">Modelos verificados arriba; toca para comparar en alta calidad. '+esc(x.fotoModelo.nota||'')+'</small>':'<p class="cp-sin-modelo">sin modelo oficial verificado</p>';}
-function novedades(c){const ls=datos()?.novedades?.[String(c)]||[];return ls.length?'<section class="mes-seccion" data-cp-novedad="'+esc(c)+'"><strong>Novedades del equipo / KAM</strong>'+ls.map(x=>'<details><summary>'+esc(x.fecha)+' · '+esc(x.autor)+'</summary><p>'+esc(x.texto)+'</p><small>'+esc(x.fuente)+'</small>'+(x.foto?fotoOficial(x.foto,'Soporte de la novedad · '+x.fecha):'')+'</details>').join('')+'</section>':'';}
+function novedades(c){const ls=datos()?.novedades?.[String(c)]||[];return ls.length?'<section class="mes-seccion" data-cp-novedad="'+esc(c)+'"><strong>Novedades del equipo / KAM</strong>'+ls.map(x=>'<details><summary>'+esc(x.fecha)+' · '+esc(x.autor)+'</summary><p>'+esc(x.texto)+'</p><small>'+esc(x.fuente)+'</small>'+(x.foto?fotoOficial(x.foto,'Soporte · '+(x.fotoFecha||x.fecha)):'')+'</details>').join('')+'</section>':'';}
 
 function lleva(x,c){
  const refs=x.refs||[],grupos=new Map(),g=x.guiaLleva;
@@ -185,5 +186,5 @@ if(typeof document!=='undefined'){
  setTimeout(()=>cargarFotos(document),0);
 
 }
-return {fila,ventanaHTML,referenciasVisibles,buscarConvenio,galeria,novedades,miniatura,cabecera,guiaSurtido,lleva,nombreCorto,stockRef,fichas,rankingLineas,rankingPresentacion,campanasChips,sosBloque,masivosBloque,stock,chip,planning,modelo,catalogo,lista,detalle,convenio,bloque,chipsProducto,cargar,guiaCadena,versus,resumen};
+return {sugeridosDavid,fila,ventanaHTML,referenciasVisibles,buscarConvenio,galeria,novedades,miniatura,cabecera,guiaSurtido,lleva,nombreCorto,stockRef,fichas,rankingLineas,rankingPresentacion,campanasChips,sosBloque,masivosBloque,stock,chip,planning,modelo,catalogo,lista,detalle,convenio,bloque,chipsProducto,cargar,guiaCadena,versus,resumen};
 })();

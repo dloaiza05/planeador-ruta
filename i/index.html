@@ -1611,6 +1611,7 @@ function invSinDataA(cod) {   // 28-oct: punto SIN reporte del CEN → misma fic
 const ConvenioProductos=(()=>{
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nombres={'7707397792763':'Sensodyne Protección Completa Econopack 180 g','7794640170133':'Sensodyne Repara y Protege 100 g','7896009498091':'Sensodyne Protección Completa 90 g','7794640170720':'Sensodyne Repara y Protege Blanqueadora 100 g','7707397791629':'Dolex Forte x10','7707397791469':'Dolex Avanzado x24','7702132008611':'Advil Max x10 cápsulas','7451079001543':'Dolex Gripa x12','7707397792503':'Advil Gripa Max x6','7702132655495':'Advil Espalda y Cuello x5 cápsulas','7702132003814':'Today Real Sensation x3','7702132002688':'Today Lubricado x3'};
+function sugeridosDavid(c){const s=datos()?.sugeridosDavid,rs=s?.pdv?.[c]||[];if(!rs.length)return '';return '<div class="ipdn" data-sugeridos-david><b>Sugeridos · David sem5</b><small style="display:block">'+esc(s.fuente)+'</small>'+rs.map(r=>'<div class="ipdk"><b>'+esc(r.producto)+'</b><small>sugerido David sem5: '+esc(r.unidades)+' und</small></div>').join('')+'<small>'+esc(s.nota)+' Cantidades solicitadas; no son existencias.</small></div>';}
 function stock(modelo,ean){const r=modelo?.it?.find(v=>String(v.e)===String(ean));return !r||modelo.sd||r.q==null||r.q===''||!Number.isFinite(Number(r.q))||['sd','noap'].includes(r.est)?'sin dato':Number(r.q)>0?'✅ tienda '+r.q:Number(r.q)===0?'❌ tienda 0 → pedir':'inventario negativo → verificar';}
 function modelo(c){return typeof invPopupModelo==='function'?invPopupModelo(c):typeof D!=='undefined'?D.inv?.popupModelos?.[c]:null;}
 function chip(m){const lateral=m.cenco.filter(x=>x.startsWith('Lateral')).map(x=>x.match(/\d+/)?.[0]).filter(Boolean);return [lateral.length?'🧱 Lateral '+lateral.join(' y ')+' Perfumería':'',m.cenco.some(x=>x.startsWith('Fila'))?'🧱 Fila única cajas':''].filter(Boolean).join(' · ');}
@@ -1678,7 +1679,7 @@ function miniatura(x,c){
 }
 function cabecera(x,label,c){return '<span class="cp-cabecera">'+miniatura(x,c)+'<span class="cp-titulo" title="'+esc(label||x.n)+'">'+esc(label||x.n)+'</span></span>';}
 function fotosModelo(x){const keys=x.fotoModelo?.verificado===true?x.fotoModelo.claves||[]:[];return keys.length?'<small class="cp-nota">Modelos verificados arriba; toca para comparar en alta calidad. '+esc(x.fotoModelo.nota||'')+'</small>':'<p class="cp-sin-modelo">sin modelo oficial verificado</p>';}
-function novedades(c){const ls=datos()?.novedades?.[String(c)]||[];return ls.length?'<section class="mes-seccion" data-cp-novedad="'+esc(c)+'"><strong>Novedades del equipo / KAM</strong>'+ls.map(x=>'<details><summary>'+esc(x.fecha)+' · '+esc(x.autor)+'</summary><p>'+esc(x.texto)+'</p><small>'+esc(x.fuente)+'</small>'+(x.foto?fotoOficial(x.foto,'Soporte de la novedad · '+x.fecha):'')+'</details>').join('')+'</section>':'';}
+function novedades(c){const ls=datos()?.novedades?.[String(c)]||[];return ls.length?'<section class="mes-seccion" data-cp-novedad="'+esc(c)+'"><strong>Novedades del equipo / KAM</strong>'+ls.map(x=>'<details><summary>'+esc(x.fecha)+' · '+esc(x.autor)+'</summary><p>'+esc(x.texto)+'</p><small>'+esc(x.fuente)+'</small>'+(x.foto?fotoOficial(x.foto,'Soporte · '+(x.fotoFecha||x.fecha)):'')+'</details>').join('')+'</section>':'';}
 
 function lleva(x,c){
  const refs=x.refs||[],grupos=new Map(),g=x.guiaLleva;
@@ -1794,7 +1795,7 @@ if(typeof document!=='undefined'){
  setTimeout(()=>cargarFotos(document),0);
 
 }
-return {fila,ventanaHTML,referenciasVisibles,buscarConvenio,galeria,novedades,miniatura,cabecera,guiaSurtido,lleva,nombreCorto,stockRef,fichas,rankingLineas,rankingPresentacion,campanasChips,sosBloque,masivosBloque,stock,chip,planning,modelo,catalogo,lista,detalle,convenio,bloque,chipsProducto,cargar,guiaCadena,versus,resumen};
+return {sugeridosDavid,fila,ventanaHTML,referenciasVisibles,buscarConvenio,galeria,novedades,miniatura,cabecera,guiaSurtido,lleva,nombreCorto,stockRef,fichas,rankingLineas,rankingPresentacion,campanasChips,sosBloque,masivosBloque,stock,chip,planning,modelo,catalogo,lista,detalle,convenio,bloque,chipsProducto,cargar,guiaCadena,versus,resumen};
 })();
 
 // FIN_CONVENIO_PRODUCTOS
@@ -1877,6 +1878,7 @@ function invPop(p, keep) {
   box.innerHTML = `<div class="ipin"><div class="iph"><div><b>${esc(a.n || p)}</b><small>${a.sd?'⚪ Sin reporte de inventario de la cadena':`📦 Inventario del ${esc(fe2(a.f))} (CEN ${esc(a.cad.toLowerCase())})${a.fa?' · antes '+esc(fe2(a.fa)):''} · lo surte ${esc(a.ce)}`}</small>
       <small>${a.sd?'Cantidades por verificar en la visita':nf(uni)+' unidades · surtido '+a.surt+'% ('+a.cr+' de '+a.ref+')'}${nD ? ` · 🏷️ ${nD} con dinámica u oferta${nDF ? ` · <b class="r">⚡ ${nDF} sin producto</b>` : ''}` : ''}</small></div><button type="button" class="ipx" data-ipx>✕</button></div>
     ${(() => { const t = a.tp; if (!t || !t.n) return ''; const f = t.n - t.ok; return `<details class="tpRVd"><summary>⭐ <b>Tienda Perfecta</b> ${t.ok}/${t.n}${f ? ` · <b class="r">faltan ${f}</b>${t.f2 ? ` (⭐⭐ ${t.f2})` : ''}` : ' ✅'} <small>ver</small>${(() => { const F = it.filter(v => v.tp && v.tp[2] && v.est !== 'ok' && v.est !== 'bajo').sort((x, y) => y.tp[0] - x.tp[0] || x.tp[1] - y.tp[1]).slice(0, 3); return F.length ? `<span class="tpHoy">🎯 Hoy prioriza: ${F.map(v => `${esc(v.d)} (${v.tp[0] === 2 ? '⭐⭐' : v.tp[0] === 1 ? '⭐' : '🏪'} ${v.est === 'noap' ? 'no codificado → KAM' : v.ce > 0 ? 'en cero → pedir al CEDI' : 'en cero → ejecutivo'})`).join(' · ')}</span>` : ''; })()}</summary><div>${esc(t.canal)} · punto tipo <b>${esc(t.tip)}</b>${f ? ` · faltan: ${t.falta.map(esc).join(', ')}` : ''}<br><small>Toca la estrella (i) de cada producto para ver qué hacer · ⭐⭐ prioridad 1 · ⭐ prioridad 2 · aplica al lineal natural; los convenios van aparte.</small></div></details>`; })()}
+    ${ConvenioProductos.sugeridosDavid(p)}
     <div class="ipf">${VER.map(([k, tt, f]) => { const n = it.filter(f).length; return n || k === IVP.ver || k === 'din' ? `<button type="button" class="${k === IVP.ver ? 'on' : ''}" data-ipver="${k}">${tt} <small>${n}</small></button>` : ''; }).join('')}</div>
     <div class="ipo"><select data-ipord>${[['dinamica', 'Dinámica + en tienda'], ['prio', 'Prioridad'], ['marca', 'Marca'], ['mas', 'Más unidades'], ['menos', 'Menos unidades'], ['cedi', 'Más en CEDI']].map(([k, tt]) => `<option value="${k}"${k === IVP.ord ? ' selected' : ''}>${tt}</option>`).join('')}</select>
       <select data-ipmar><option value="">Todas las marcas</option>${MAR.map(m => `<option${m === IVP.mar ? ' selected' : ''}>${esc(m)}</option>`).join('')}</select></div>
