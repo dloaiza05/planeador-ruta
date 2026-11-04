@@ -1,0 +1,1 @@
+﻿Contrato del paso final. El programador ejecuta analizador/actualizar_inventario.py fuera del sitio. El integrador ../integracion-convenios.cjs corre tras copiar index.html y los alias, antes de commit/push. Las fuentes Python completas y sus pruebas quedan en la auditoria local privada.
