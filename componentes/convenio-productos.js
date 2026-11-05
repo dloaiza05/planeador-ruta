@@ -25,9 +25,11 @@ function gruposReferencias(refs,nombre,fila){
  }
  return Array.from(grupos,([key,rows])=>'<details class="cp-grupo"><summary>'+esc(key)+' · '+rows.length+(rows.length===1?' referencia':' referencias')+'</summary>'+rows.join('')+'</details>').join('');
 }
+function gestionesVum(){return typeof D!=='undefined'&&Array.isArray(D.gest)?D.gest:datos()?.gestionesVum||[];}
+function capturaVum(x,c){const gs=gestionesVum().filter(g=>String(g.p)===String(c)&&String(g.ce)===String(x.id)&&g.f?.startsWith(x.periodo||mesActual())).sort((a,b)=>b.f.localeCompare(a.f));for(const g of gs){const code=(g.fo||[]).find(k=>datos()?.fotosVum?.[k]?.w);if(code)return {g,code:String(code)};}return null;}
 function historialReferencia(c,x){
- if(typeof D==='undefined'||!Array.isArray(D.gest)||!x.id)return '';
- const rr=D.gest.filter(g=>String(g.p)===String(c)&&String(g.ce)===String(x.id)&&g.ad==='NEGOCIADA').sort((a,b)=>b.f.localeCompare(a.f));
+ if(!x.id)return '';
+ const rr=gestionesVum().filter(g=>String(g.p)===String(c)&&String(g.ce)===String(x.id)).sort((a,b)=>b.f.localeCompare(a.f));
  if(!rr.length)return '';
  return '<details><summary>Gestiones registradas · '+rr.length+'</summary>'+rr.map(g=>'<p><b>'+esc(g.f.slice(0,10))+' · '+esc(g.un||g.u)+'</b><br>'+esc(g.mo||'Sin causal registrada')+'<br>Observación: <span style="white-space:pre-wrap">'+esc(g.ob||'Sin observación escrita.')+'</span></p>').join('')+'</details>';
 }
@@ -56,7 +58,7 @@ function dictamenConvenio(x,c){const cap=capturaConvenio(x,c);return cap?datos()
 function colorVersus(x,c){const v=dictamenConvenio(x,c);if(v&&[v.tp,v.guia].some(s=>s?.semaforo==='INSUFICIENTE'||s?.criterios?.filter(c=>c.resultado!==null).length<4))return '#94a3b8';const ns=[v?.tp?.score,v?.guia?.score].filter(n=>typeof n==='number'&&Number.isFinite(n));if(ns.length<2)return '#94a3b8';const worst=Math.min(...ns);return worst>=80?'#15803d':worst>=60?'#d97706':'#dc2626';}
 function mapaCapturaHTML(v){if(!v?.mapaProductos?.length)return '';return '<details data-mapa-captura><summary>Productos observados · '+v.mapaProductos.length+' posiciones</summary><p style="font-size:12px">Entrepaños de arriba abajo; posiciones de izquierda a derecha. Se muestra el segmento fotografiado, sin contar profundidad.</p>'+v.mapaProductos.map(m=>'<p style="font-size:12px;overflow-wrap:anywhere"><b>Entrepaño '+esc(m.entrepano)+' · posición '+esc(m.posicion)+'</b>: '+esc(m.referencia)+'<br>'+esc(m.marca)+' · '+esc(m.presentacion||'Presentación no legible')+' · Caras: '+esc(m.caras||'no cuantificadas')+'<br>Precio: '+esc(m.precio||'no verificado')+'</p>').join('')+'</details>';}
 function criteriosOficialesHTML(v){if(v?.versionReglas!=='v3-tabla-oficial')return '';const part=(title,r)=>'<p><b>'+esc(title)+'</b></p><ul>'+r.criterios.map(c=>'<li>'+esc(c.resultado===null?'⚪ no visible / no aplicable':c.resultado===1?'✅ sí':'❌ no')+' — '+esc(c.criterio)+'</li>').join('')+'</ul>';return '<p>'+esc(v.lecturaOriginal)+'</p><details data-rubrica-v3><summary>Ver criterios por foto · '+esc(v.filaRubrica)+'</summary>'+part('Tienda Perfecta',v.tp)+part('NOV-DIC',v.guia)+'</details>';}
-function versusConvenioHTML(x,c){const v=dictamenConvenio(x,c),cap=capturaConvenio(x,c);const line=(title,r)=>{const n=typeof r?.score==='number'?r.score:null,tag=r?.semaforo==='INSUFICIENTE'?'⚪ evidencia insuficiente':n===null?'Sin dictamen':(n>=80?'✅':n>=60?'⚠️':'❌')+' '+n+'/100';return '<p><b>'+esc(title)+': '+esc(tag)+'</b> · '+esc(r?.estado||(cap?'Pendiente comparación de esta captura':'Sin captura confirmada'))+(r?.diferencias?.length?'<br>'+r.diferencias.slice(0,3).map(esc).join(' · '):'')+(r?.fuente?'<br><small>'+esc(r.fuente)+'</small>':'')+(n!==null?'<br><small>Criterios observables: '+esc(r.cobertura)+' %. Fuera de encuadre: no evaluable.</small>':'')+'</p>';};return '<section data-versus-convenio style="border-left:4px solid '+colorVersus(x,c)+';padding:8px 12px;margin:12px 0;background:#f8fafc">'+line(v?.tp?.titulo||'Versus Tienda Perfecta',v?.tp)+line('Versus guía Alejandro',v?.guia)+(v?.limite?'<small>'+esc(v.limite)+'</small>':'')+criteriosOficialesHTML(v)+mapaCapturaHTML(v)+'</section>';}
+function versusConvenioHTML(x,c){const v=dictamenConvenio(x,c),cap=capturaConvenio(x,c);const line=(title,r)=>{const n=typeof r?.score==='number'?r.score:null,tag=r?.semaforo==='INSUFICIENTE'?'⚪ evidencia insuficiente':n===null?'Sin dictamen':(n>=80?'✅':n>=60?'⚠️':'❌')+' '+n+'/100';return '<p><b>'+esc(title)+': '+esc(tag)+'</b> · '+esc(r?.estado||(cap||capturaVum(x,c)?'Pendiente comparación de esta captura':'Sin captura confirmada'))+(r?.diferencias?.length?'<br>'+r.diferencias.slice(0,3).map(esc).join(' · '):'')+(r?.fuente?'<br><small>'+esc(r.fuente)+'</small>':'')+(n!==null?'<br><small>Criterios observables: '+esc(r.cobertura)+' %. Fuera de encuadre: no evaluable.</small>':'')+'</p>';};return '<section data-versus-convenio style="border-left:4px solid '+colorVersus(x,c)+';padding:8px 12px;margin:12px 0;background:#f8fafc">'+line(v?.tp?.titulo||'Versus Tienda Perfecta',v?.tp)+line('Versus guía Alejandro',v?.guia)+(v?.limite?'<small>'+esc(v.limite)+'</small>':'')+criteriosOficialesHTML(v)+mapaCapturaHTML(v)+'</section>';}
 
 function galeria(x,c){
  const d=datos(),mes=x.periodo||mesActual(),r=d?.mediaConvenios?.[String(c)+'|'+x.id],fm=x.fotoModelo||{};
@@ -69,8 +71,9 @@ function galeria(x,c){
  const cadenaFoto=s=>/OLIMPICA|SAO/.test(String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase())?'OLIMPICA':String(s||'').toUpperCase();
  const ej=(d?.ejemplosReales||[]).filter(e=>(audit?.referencias||r?.ejemplos||[]).includes(e.hq)&&cadenaFoto(e.cadena)===cadenaFoto(audit?.cadena||d?.cadenasExactas?.[String(c)])).slice(0,1);
  slots.push(...ej.map(e=>({tipo:'ejemplo',label:'Referencia real · '+e.PDV+' · '+e.fecha+(e.score==null?' · patrón observado':' · score '+e.score+(e.score<60?', mejorable':'')),mini:e.mini,hq:e.hq,nota:'Referencia real · '+e.PDV+' · '+e.fecha+(e.score==null?' · sin score TP · ':' · score '+e.score+'/100 · ')+e.motivo+' · '+e.limite})));
- const cap=capturaConvenio(x,c),ultima=cap&&!cap.fecha.startsWith(mes);
- slots.push(cap?{tipo:'captura',label:(ultima?'Última captura · ':'Captura · ')+cap.fecha,mini:cap.mini,hq:cap.hq,nota:cap.fecha+' · '+cap.autor+' · '+(cap.origen||'VUM')+' · cód. '+cap.codigo+' · Sello: '+cap.sello+(cap.asociacion?' · '+cap.asociacion:'')+(ultima?' · Histórica: no acredita ejecución del mes seleccionado.':''),estado:cap.estado,color:colorVersus(x,c)}:{tipo:'captura',label:'Captura · '+mes,nota:'Sin captura compatible confirmada de la misma categoría, PDV y código.'});
+ const cap=capturaConvenio(x,c),ultima=cap&&!cap.fecha.startsWith(mes),raw=capturaVum(x,c);
+ if(raw&&(!cap||String(cap.foto)!==raw.code)){slots.push({tipo:'captura',label:'Captura VUM · '+raw.g.f.slice(0,10),mini:'vum:'+raw.code,hq:'vum:'+raw.code,nota:raw.g.un+' · cód. '+x.id+' · Foto reportada; comparación visual pendiente. '+(raw.g.mo?'Causal: '+raw.g.mo:''),color:'#64748b'});}
+ if(cap||!raw)slots.push(cap?{tipo:'captura',label:(ultima?'Última captura · ':'Captura · ')+cap.fecha,mini:cap.mini,hq:cap.hq,nota:cap.fecha+' · '+cap.autor+' · '+(cap.origen||'VUM')+' · cód. '+cap.codigo+' · Sello: '+cap.sello+(cap.asociacion?' · '+cap.asociacion:'')+(ultima?' · Histórica: no acredita ejecución del mes seleccionado.':''),estado:cap.estado,color:colorVersus(x,c)}:{tipo:'captura',label:'Captura · '+mes,nota:'Sin captura compatible confirmada de la misma categoría, PDV y código.'});
  return slots;
 }
 
@@ -139,7 +142,7 @@ function buscarConvenio(c,id,n,ctx={}){
 }
 function estadoConvenio(x,c){
  if(x.estado)return x.estado;
- const gs=(typeof D!=='undefined'?D.gest:[])||[],g=gs.filter(g=>String(g.p)===String(c)&&String(g.ce)===String(x.id)&&g.f?.startsWith(x.periodo)).sort((a,b)=>b.f.localeCompare(a.f))[0];
+ const gs=gestionesVum(),g=gs.filter(g=>String(g.p)===String(c)&&String(g.ce)===String(x.id)&&g.f?.startsWith(x.periodo)).sort((a,b)=>b.f.localeCompare(a.f))[0];
  if(g)return !g.mo&&g.fo?.length?'✅':/IMPLEMENTAD|CUMPLE/i.test(g.mo||'')&&!/NO IMPLEMENTAD|NO CUMPLE/i.test(g.mo||'')?'✅':'⚠️';
  return '○ pendiente';
 }
@@ -192,7 +195,7 @@ if(typeof document!=='undefined'){
  dlg.innerHTML=ventanaHTML(v.x,v.c);dlg.querySelector('.cp-ventana-cerrar').onclick=()=>dlg.close();dlg.onclose=()=>btn.focus();if(!dlg.open)dlg.showModal();iniciarCarrusel(dlg);cargarFotos(dlg);
  },true);
  const fotosCache=new Map();
- const fotoURL=k=>{if(!fotosCache.has(k))fotosCache.set(k,Promise.resolve().then(()=>medImg('convenioFotos',k)).catch(()=>{fotosCache.delete(k);return '';}));return fotosCache.get(k);};
+ const fotoURL=k=>{if(String(k).startsWith('vum:')){const w=datos()?.fotosVum?.[String(k).slice(4)]?.w;return Promise.resolve(w&&/^[A-Za-z0-9_-]+$/.test(w)?'https://visionstandardapp.blob.core.windows.net/data/fotosWeb/20/'+w+'.jpg':'');}if(!fotosCache.has(k))fotosCache.set(k,Promise.resolve().then(()=>medImg('convenioFotos',k)).catch(()=>{fotosCache.delete(k);return '';}));return fotosCache.get(k);};
  const visible=im=>{for(let d=im.parentElement;d;d=d.parentElement){if(d.tagName==='DETAILS'&&!d.open){const s=Array.from(d.children||[]).find(c=>c.tagName==='SUMMARY');if(!s?.contains(im))return false;}}return true;};
  const cargarFotos=root=>root.querySelectorAll?.('[data-cp-foto]:not([src])').forEach(im=>{if(!visible(im))return;fotoURL(im.dataset.cpFoto).then(u=>{if(u&&im.isConnected!==false)im.src=u;});});
  document.addEventListener('toggle',e=>{if(e.target.open)cargarFotos(e.target);},true);
